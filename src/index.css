@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Fix TimePicker scrolling on mobile */
+.time-picker-mobile .ant-picker-time-panel {
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+}
+
+.time-picker-mobile .ant-picker-time-panel-column {
+    overflow-y: auto !important;
+    touch-action: pan-y !important;
+}
+
+/* Prevent body scroll when time picker is open on mobile */
+body.ant-scrolling-effect {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+}
