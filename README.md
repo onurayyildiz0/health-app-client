@@ -1,73 +1,80 @@
-# Sağlık ve Randevu Yönetim Sistemi - Frontend
+# Health & Appointment Management System - Frontend
 
-## React & Node.js Bitirme Projesi
+**Developer:** İsmail Onur Ayyıldız  
+**Type:** Graduation Project (MERN Stack)
 
-**Geliştirici:** İsmail Onur Ayyıldız
+## 📖 Project Description
 
----
+This repository contains the **Client-side (Frontend)** of the Health and Appointment Management System. Built with **React** and **Vite**, it provides a modern, fast, and responsive user interface.
 
-## Proje Tanımı
+The application features specialized dashboards for **Patients**, **Doctors**, and **Admins**. It communicates with a robust Backend API to handle appointments, doctor approvals, profile management, and review systems.
 
-Bu proje, Sağlık ve Randevu Yönetim Sistemi'nin kullanıcı arayüzü (Client) tarafıdır. React ve Vite kullanılarak geliştirilmiş modern, hızlı ve responsive bir arayüz sunar.
-Hastalar, Doktorlar ve Yöneticiler (Admin) için özelleştirilmiş paneller (Dashboard) içerir. Backend API ile haberleşerek randevu alma, doktor onayı, profil yönetimi ve değerlendirme işlemlerini gerçekleştirir.
-
----
-
-## Kullanılan Teknolojiler
-
-- **Core:** React.js, Vite
-- **State Yönetimi:** Redux Toolkit
-- **UI Kütüphanesi:** Ant Design (Antd)
-- **Styling:** Tailwind CSS
-- **Routing:** React Router DOM
-- **HTTP İstemcisi:** Axios
-- **Tarih/Saat Yönetimi:** Day.js
-- **İkon Seti:** Ant Design Icons
+🔗 **Backend Repository:** [Link to your Backend Repo Here]
 
 ---
 
-## Özellikler
+## 🛠 Tech Stack
 
-### 🏥 Hasta Paneli (Patient)
-- **Randevu Yönetimi:** Uygun doktorları arama, randevu oluşturma, yaklaşan randevuları görüntüleme ve iptal etme.
-- **Doktor Filtreleme:** Branşa, isme veya minimum puana göre doktor arama.
-- **Favoriler:** Beğenilen doktorları favorilere ekleme/çıkarma.
-- **Değerlendirme:** Geçmiş randevular için doktora puan verme ve yorum yapma.
-- **Profil:** Kişisel sağlık bilgilerini ve hesap ayarlarını güncelleme.
-
-### 👨‍⚕️ Doktor Paneli (Doctor)
-- **Dashboard:** Günlük randevu özeti, toplam hasta sayısı ve puan durumu.
-- **Takvim Yönetimi:** Çalışma saatlerini ve günlerini belirleme.
-- **Randevu Takibi:** Gelen randevu taleplerini görüntüleme ve yönetme.
-- **Profil Yönetimi:** Uzmanlık alanı, biyografi ve hastane bilgilerini düzenleme.
-
-### 🛡️ Admin Paneli
-- **Kullanıcı Yönetimi:** Sistemdeki tüm kullanıcıları listeleme ve silme.
-- **Doktor Onayı:** Sisteme kayıt olan doktorların belgelerini inceleyip onaylama veya reddetme.
-- **Sistem İzleme:** Genel istatistikleri görüntüleme.
-
-### 🔐 Genel Özellikler
-- **Auth:** JWT tabanlı güvenli giriş ve kayıt (Login/Register).
-- **Responsive Tasarım:** Mobil ve masaüstü uyumlu arayüz.
-- **Bildirimler:** İşlem sonuçları için kullanıcı dostu bildirimler (Toast messages).
+* **Core:** React.js, Vite
+* **State Management:** Redux Toolkit
+* **UI Library:** Ant Design (Antd)
+* **Styling:** Tailwind CSS
+* **Routing:** React Router DOM
+* **HTTP Client:** Axios
+* **Date/Time:** Day.js
+* **Icons:** Ant Design Icons
 
 ---
 
-## Kurulum ve Çalıştırma
+## ✨ Key Features
 
-Projeyi yerel ortamınızda çalıştırmak için aşağıdaki adımları izleyin.
+### 🏥 Patient Panel
+* **Appointment Management:** Search for doctors, book appointments, view upcoming schedules, and cancel if necessary.
+* **Doctor Filtering:** Filter doctors by branch (specialty), name, or minimum rating score.
+* **Favorites:** Add/remove doctors to a personal favorites list.
+* **Reviews:** Rate and review doctors after completed appointments.
+* **Profile:** Update personal health data and account settings.
 
-1. **Projeyi Klonlayın:**
-   ```bash
-   git clone <repo-url>
-   cd health-app-client
+### 👨‍⚕️ Doctor Panel
+* **Dashboard:** View daily appointment summaries, total patient count, and rating status.
+* **Schedule Management:** Set working hours and available days.
+* **Appointment Tracking:** View and manage incoming appointment requests.
+* **Profile Management:** Edit biography, hospital details, and specialization info.
 
-2. **Bağımlılıkları Yükleyin:**
+### 🛡️ Admin Panel
+* **User Management:** List and manage all users (doctors/patients) in the system.
+* **Doctor Approval System:** Review credentials of newly registered doctors and approve/reject their accounts.
+* **System Monitoring:** View general platform statistics.
+
+### 🔐 General Features
+* **Authentication:** Secure Login/Register via JWT (JSON Web Token).
+* **Responsive Design:** Fully compatible with mobile and desktop devices.
+* **Notifications:** User-friendly toast messages for actions (Success/Error).
+
+---
+
+## 🚀 Installation & Setup
+
+Follow these steps to run the project locally.
+
+1.  **Clone the Repository**
+    ```bash
+    git clone <repo-url>
+    cd health-app-client
+    ```
+
+2.  **Install Dependencies**
+    ```bash
     npm install
+    ```
 
-3. **Çevre Değişkenlerini Ayarlayın:**
+3.  **Environment Variables**
+    Create a `.env` file in the root directory:
+    ```env
     VITE_API_URL=http://localhost:3000/api
+    ```
 
-
-4. **Projeyi Başlatın:**
+4.  **Start the App**
+    ```bash
     npm run dev
+    ```
