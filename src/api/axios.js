@@ -20,7 +20,7 @@ import axios from 'axios';
  * Örnek:
  * axios.get('/auth/login') → https://health-app-xequ.onrender.com/api/auth/login
  */
-const API_URL =  'https://health-app-xequ.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://health-app-xequ.onrender.com/api';
 
 /**
  * RATE LIMITING
@@ -30,8 +30,8 @@ const API_URL =  'https://health-app-xequ.onrender.com/api';
  */
 let lastRequestTime = 0;
 const MIN_REQUEST_DELAY = 1500; // Tüm istekler arasında minimum 1.5 saniye
-const requestQueue = [];
-let isProcessingQueue = false;
+// const requestQueue = [];
+// let isProcessingQueue = false;
 
 /**
  * AXIOS INSTANCE OLUŞTURMA

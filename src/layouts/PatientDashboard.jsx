@@ -135,7 +135,7 @@ const PatientDashboard = () => {
             key: 'time',
             render: (record) => (
                 <Tag icon={<ClockCircleOutlined />} color="blue">
-                    {record.start} - {record.end}
+                    {record.start} 
                 </Tag>
             )
         },

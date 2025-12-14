@@ -1,17 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Select, DatePicker, TimePicker, Input, Alert, message } from 'antd';
+import { Card, Button, Select, DatePicker, TimePicker, Input, Alert, message, ConfigProvider } from 'antd';
 import { CalendarOutlined, ClockCircleOutlined, MedicineBoxOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Formik, Form } from 'formik';
 import dayjs from 'dayjs';
-
-// --- YENİ EKLENEN KISIM: Dayjs Plugin ---
-// Tarih aralığı kontrolü için bu eklenti şarttır
 import isBetween from 'dayjs/plugin/isBetween';
-dayjs.extend(isBetween);
-// ----------------------------------------
-
+import enUS from 'antd/locale/en_US';
 import * as appointmentService from '../../api/appointmentService';
 import axiosInstance from '../../api/axios';
 import { createAppointmentSchema } from '../../validations/AppointmentValidations';
@@ -22,6 +17,8 @@ import {
     selectAppointmentLoading,
     selectAppointmentError
 } from '../../store/slices/appointmentSlice';
+
+dayjs.extend(isBetween);
 
 const { TextArea } = Input;
 
@@ -72,11 +69,12 @@ const CreateAppointment = () => {
             const response = await appointmentService.createAppointment(appointmentData);
 
             dispatch(createAppointmentSuccess(response));
-            message.success('Randevu başarıyla oluşturuldu!');
+            message.success('Randevu başarıyla oluşturuldu! Ödeme sayfasına yönlendiriliyorsunuz...');
             resetForm();
 
+            // Randevu oluşturulduktan sonra ödeme sayfasına yönlendir
             setTimeout(() => {
-                navigate('/dashboard/patient/appointments');
+                navigate(`/payment?appointmentId=${response._id}`);
             }, 1500);
 
         } catch (err) {
@@ -89,26 +87,27 @@ const CreateAppointment = () => {
     };
 
     return (
-        <div className="max-w-4xl mx-auto">
-            <Card
-                title={
-                    <div className="flex items-center gap-2">
-                        <CalendarOutlined className="text-blue-500" />
-                        <span>Yeni Randevu Oluştur</span>
-                    </div>
-                }
-                className="shadow-lg"
-            >
-                {error && (
-                    <Alert
-                        message={error}
-                        type="error"
-                        closable
-                        className="mb-4"
-                    />
-                )}
+        <ConfigProvider locale={enUS}>
+            <div className="max-w-4xl mx-auto">
+                <Card
+                    title={
+                        <div className="flex items-center gap-2">
+                            <CalendarOutlined className="text-blue-500" />
+                            <span>Yeni Randevu Oluştur</span>
+                        </div>
+                    }
+                    className="shadow-lg"
+                >
+                    {error && (
+                        <Alert
+                            message={error}
+                            type="error"
+                            closable
+                            className="mb-4"
+                        />
+                    )}
 
-                <Formik
+                    <Formik
                     initialValues={{
                         doctor: '',
                         date: null,
@@ -154,7 +153,7 @@ const CreateAppointment = () => {
                                     >
                                         {doctors.map((doctor) => (
                                             <Select.Option key={doctor._id} value={doctor._id}>
-                                                {`${doctor.user?.name || 'İsimsiz'} - ${doctor.speciality || 'Branş Yok'}`}
+                                                {`${doctor.user?.name || 'İsimsiz'} - ${doctor.speciality || 'Branş Yok'}${doctor.location ? ` - ${doctor.location}` : ''}`}
                                             </Select.Option>
                                         ))}
                                     </Select>
@@ -299,6 +298,7 @@ const CreateAppointment = () => {
                 </Formik>
             </Card>
         </div>
+        </ConfigProvider>
     );
 };
 

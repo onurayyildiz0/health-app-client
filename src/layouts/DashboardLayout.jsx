@@ -12,7 +12,8 @@ import {
     MedicineBoxOutlined,
     ClockCircleOutlined,
     StarOutlined,
-    FileTextOutlined
+    FileTextOutlined,
+    CalendarFilled
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -107,7 +108,9 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                 },
                 {
                     key: `${basePath}/timeoff`,
+                    icon: <CalendarOutlined />,
                     label: 'İzin Dönemlerim',
+
                     onClick: () => navigate(`${basePath}/timeoff`)
                 }
             ];

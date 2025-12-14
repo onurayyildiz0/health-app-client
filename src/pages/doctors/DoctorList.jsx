@@ -21,7 +21,8 @@ import {
     UserOutlined,
     StarFilled,
     CalendarOutlined,
-    FilterOutlined
+    FilterOutlined,
+    EnvironmentOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -53,7 +54,12 @@ const DoctorList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSpeciality, setSelectedSpeciality] = useState('');
     const [minRating, setMinRating] = useState(0);
+    const [selectedLocation, setSelectedLocation] = useState('');
+    const [priceRange, setPriceRange] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+
+    // Benzersiz lokasyonları çıkar
+    const locations = [...new Set(doctors.map(d => d.location).filter(Boolean))].sort();
 
     // Branş listesi (backend'den de gelebilir)
     const specialities = [
@@ -79,7 +85,8 @@ const DoctorList = () => {
                 limit: 12,
                 search: searchTerm,
                 speciality: selectedSpeciality,
-                minRating: minRating || undefined
+                minRating: minRating || undefined,
+                location: selectedLocation || undefined
             };
 
             const response = await doctorService.getAllDoctors(params);
@@ -104,7 +111,7 @@ const DoctorList = () => {
             clearTimeout(timeoutId);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchTerm, selectedSpeciality, minRating, currentPage]);
+    }, [searchTerm, selectedSpeciality, minRating, selectedLocation, priceRange, currentPage]);
 
     // Arama butonu veya enter ile sadece sayfayı 1'e çek
     const handleSearch = () => {
@@ -123,9 +130,31 @@ const DoctorList = () => {
         setSearchTerm('');
         setSelectedSpeciality('');
         setMinRating(0);
+        setSelectedLocation('');
+        setPriceRange('');
         setCurrentPage(1);
         fetchDoctors(1);
     };
+
+    // Fiyat filtreleme (frontend'de)
+    const filteredDoctors = doctors.filter(doctor => {
+        if (!priceRange) return true;
+        
+        const fee = doctor.consultationFee || 0;
+        
+        switch(priceRange) {
+            case '0-200':
+                return fee <= 200;
+            case '200-500':
+                return fee > 200 && fee <= 500;
+            case '500-1000':
+                return fee > 500 && fee <= 1000;
+            case '1000+':
+                return fee > 1000;
+            default:
+                return true;
+        }
+    });
 
     // Doktor kartına tıklama
     const handleDoctorClick = (doctorId) => {
@@ -152,9 +181,10 @@ const DoctorList = () => {
                 </div>
 
                 {/* Arama ve Filtreler */}
-                <Card className="mb-6">
+                <Card className="mb-6 shadow-sm">
                     <Row gutter={[16, 16]}>
-                        <Col xs={24} sm={12} md={8}>
+                        {/* Arama Kutusu */}
+                        <Col xs={24} lg={8}>
                             <Input
                                 size="large"
                                 placeholder="Doktor adı veya branş ara..."
@@ -162,12 +192,15 @@ const DoctorList = () => {
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onPressEnter={handleSearch}
+                                className="w-full"
                             />
                         </Col>
-                        <Col xs={24} sm={12} md={6}>
+
+                        {/* Branş Seçimi */}
+                        <Col xs={24} sm={12} lg={4}>
                             <Select
                                 size="large"
-                                placeholder="Branş seçin"
+                                placeholder="Branş"
                                 style={{ width: '100%' }}
                                 value={selectedSpeciality || undefined}
                                 onChange={setSelectedSpeciality}
@@ -178,39 +211,71 @@ const DoctorList = () => {
                                 ))}
                             </Select>
                         </Col>
-                        <Col xs={24} sm={12} md={6}>
+
+                        {/* Lokasyon */}
+                        <Col xs={24} sm={12} lg={4}>
                             <Select
                                 size="large"
-                                placeholder="Min. puan"
+                                placeholder="Lokasyon"
+                                style={{ width: '100%' }}
+                                value={selectedLocation || undefined}
+                                onChange={setSelectedLocation}
+                                allowClear
+                                showSearch
+                            >
+                                {locations.map(loc => (
+                                    <Option key={loc} value={loc}>
+                                        <EnvironmentOutlined className="mr-1" />
+                                        {loc}
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Col>
+
+                        {/* Fiyat Aralığı */}
+                        <Col xs={24} sm={12} lg={3}>
+                            <Select
+                                size="large"
+                                placeholder="Fiyat"
+                                style={{ width: '100%' }}
+                                value={priceRange || undefined}
+                                onChange={setPriceRange}
+                                allowClear
+                            >
+                                <Option value="0-200">₺0-200</Option>
+                                <Option value="200-500">₺200-500</Option>
+                                <Option value="500-1000">₺500-1K</Option>
+                                <Option value="1000+">₺1K+</Option>
+                            </Select>
+                        </Col>
+
+                        {/* Min. Puan */}
+                        <Col xs={24} sm={12} lg={3}>
+                            <Select
+                                size="large"
+                                placeholder="Puan"
                                 style={{ width: '100%' }}
                                 value={minRating || undefined}
                                 onChange={setMinRating}
                                 allowClear
                             >
-                                <Option value={4.5}>4.5+ Yıldız</Option>
-                                <Option value={4.0}>4.0+ Yıldız</Option>
-                                <Option value={3.5}>3.5+ Yıldız</Option>
+                                <Option value={4.5}>⭐ 4.5+</Option>
+                                <Option value={4.0}>⭐ 4.0+</Option>
+                                <Option value={3.5}>⭐ 3.5+</Option>
                             </Select>
                         </Col>
-                        <Col xs={24} sm={12} md={4}>
-                            <Space style={{ width: '100%' }}>
-                                <Button
-                                    size="large"
-                                    type="primary"
-                                    icon={<SearchOutlined />}
-                                    onClick={handleSearch}
-                                    block
-                                >
-                                    Ara
-                                </Button>
-                                <Button
-                                    size="large"
-                                    icon={<FilterOutlined />}
-                                    onClick={handleClearFilters}
-                                >
-                                    Temizle
-                                </Button>
-                            </Space>
+
+                        {/* Temizle Butonu */}
+                        <Col xs={24} lg={2}>
+                            <Button
+                                size="large"
+                                icon={<FilterOutlined />}
+                                onClick={handleClearFilters}
+                                block
+                                className="w-full"
+                            >
+                                Temizle
+                            </Button>
                         </Col>
                     </Row>
                 </Card>
@@ -245,10 +310,10 @@ const DoctorList = () => {
                     </Card>
                 )}
 
-                {!loading && doctors.length > 0 && (
+                {!loading && filteredDoctors.length > 0 && (
                     <>
                         <Row gutter={[16, 16]}>
-                            {doctors.map((doctor) => (
+                            {filteredDoctors.map((doctor) => (
                                 <Col xs={24} sm={12} md={8} lg={6} key={doctor._id}>
                                     <Card
                                         hoverable
@@ -268,6 +333,26 @@ const DoctorList = () => {
                                             <Tag color="blue" className="mb-2">
                                                 {doctor.speciality}
                                             </Tag>
+
+                                            {/* Lokasyon */}
+                                            {doctor.location && (
+                                                <div className="mb-2">
+                                                    <Text type="secondary" className="text-sm">
+                                                        <EnvironmentOutlined className="mr-1" />
+                                                        {doctor.location}
+                                                    </Text>
+                                                </div>
+                                            )}
+
+                                            {/* Muayene Ücreti */}
+                                            {doctor.consultationFee > 0 && (
+                                                <div className="mb-2">
+                                                    <Text strong className="text-base" style={{ color: '#1890ff' }}>
+                                                        ₺{doctor.consultationFee}
+                                                    </Text>
+                                                    <Text type="secondary" className="text-xs"> / saat</Text>
+                                                </div>
+                                            )}
 
                                             {/* Puan */}
                                             <div className="flex items-center justify-center gap-2 mb-2">

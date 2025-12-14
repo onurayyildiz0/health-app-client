@@ -43,6 +43,9 @@ const Register = () => {
 
             if (values.role === 'doctor') {
                 formData.append('speciality', values.speciality);
+                if (values.location) {
+                    formData.append('location', values.location);
+                }
                 if (values.documents) {
                     formData.append('documents', values.documents);
                 }
@@ -118,7 +121,8 @@ const Register = () => {
                             confirmPassword: '',
                             role: 'patient',
                             documents: null,
-                            speciality: ''
+                            speciality: '',
+                            location: ''
                         }}
                         validationSchema={RegisterSchema}
                         onSubmit={handleRegister}
@@ -223,41 +227,60 @@ const Register = () => {
 
 
                                 {values.role === 'doctor' && (
-                                    <Form.Item
-                                        label={<span className='font-semibold text-gray-700'>Uzmanlık Alanı *</span>}
-                                        validateStatus={touched.speciality && errors.speciality ? 'error' : ''}
-                                        help={touched.speciality && errors.speciality ? errors.speciality : 'Lütfen uzmanlık alanınızı seçin'}
-                                        className='mb-4'
-                                        required
-                                    >
-                                        <select
-                                            name="speciality"
-                                            value={values.speciality}
-                                            onChange={handleChange}
-                                            onBlur={handleBlur}
-                                            className="w-full p-2 rounded border border-gray-300 focus:border-green-500"
+                                    <>
+                                        <Form.Item
+                                            label={<span className='font-semibold text-gray-700'>Uzmanlık Alanı *</span>}
+                                            validateStatus={touched.speciality && errors.speciality ? 'error' : ''}
+                                            help={touched.speciality && errors.speciality ? errors.speciality : 'Lütfen uzmanlık alanınızı seçin'}
+                                            className='mb-4'
+                                            required
                                         >
-                                            <option value="">Uzmanlık alanınızı seçin</option>
-                                            <option value="Genel Pratisyen">Genel Pratisyen</option>
-                                            <option value="Dahiliye">Dahiliye</option>
-                                            <option value="Kardiyoloji">Kardiyoloji</option>
-                                            <option value="Çocuk Sağlığı ve Hastalıkları">Çocuk Sağlığı ve Hastalıkları</option>
-                                            <option value="Kadın Hastalıkları ve Doğum">Kadın Hastalıkları ve Doğum</option>
-                                            <option value="Göz Hastalıkları">Göz Hastalıkları</option>
-                                            <option value="Kulak Burun Boğaz">Kulak Burun Boğaz</option>
-                                            <option value="Ortopedi">Ortopedi</option>
-                                            <option value="Cildiye">Cildiye</option>
-                                            <option value="Nöroloji">Nöroloji</option>
-                                            <option value="Psikiyatri">Psikiyatri</option>
-                                            <option value="Üroloji">Üroloji</option>
-                                            <option value="Genel Cerrahi">Genel Cerrahi</option>
-                                            <option value="Beyin ve Sinir Cerrahisi">Beyin ve Sinir Cerrahisi</option>
-                                            <option value="Göğüs Hastalıkları">Göğüs Hastalıkları</option>
-                                            <option value="Enfeksiyon Hastalıkları">Enfeksiyon Hastalıkları</option>
-                                            <option value="Fizik Tedavi ve Rehabilitasyon">Fizik Tedavi ve Rehabilitasyon</option>
-                                            <option value="Diğer">Diğer</option>
-                                        </select>
-                                    </Form.Item>
+                                            <select
+                                                name="speciality"
+                                                value={values.speciality}
+                                                onChange={handleChange}
+                                                onBlur={handleBlur}
+                                                className="w-full p-2 rounded border border-gray-300 focus:border-green-500"
+                                            >
+                                                <option value="">Uzmanlık alanınızı seçin</option>
+                                                <option value="Genel Pratisyen">Genel Pratisyen</option>
+                                                <option value="Dahiliye">Dahiliye</option>
+                                                <option value="Kardiyoloji">Kardiyoloji</option>
+                                                <option value="Çocuk Sağlığı ve Hastalıkları">Çocuk Sağlığı ve Hastalıkları</option>
+                                                <option value="Kadın Hastalıkları ve Doğum">Kadın Hastalıkları ve Doğum</option>
+                                                <option value="Göz Hastalıkları">Göz Hastalıkları</option>
+                                                <option value="Kulak Burun Boğaz">Kulak Burun Boğaz</option>
+                                                <option value="Ortopedi">Ortopedi</option>
+                                                <option value="Cildiye">Cildiye</option>
+                                                <option value="Nöroloji">Nöroloji</option>
+                                                <option value="Psikiyatri">Psikiyatri</option>
+                                                <option value="Üroloji">Üroloji</option>
+                                                <option value="Genel Cerrahi">Genel Cerrahi</option>
+                                                <option value="Beyin ve Sinir Cerrahisi">Beyin ve Sinir Cerrahisi</option>
+                                                <option value="Göğüs Hastalıkları">Göğüs Hastalıkları</option>
+                                                <option value="Enfeksiyon Hastalıkları">Enfeksiyon Hastalıkları</option>
+                                                <option value="Fizik Tedavi ve Rehabilitasyon">Fizik Tedavi ve Rehabilitasyon</option>
+                                                <option value="Diğer">Diğer</option>
+                                            </select>
+                                        </Form.Item>
+
+                                        <Form.Item
+                                            label={<span className='font-semibold text-gray-700'>Muayenehane/Hastane Lokasyonu</span>}
+                                            validateStatus={touched.location && errors.location ? 'error' : ''}
+                                            help={touched.location && errors.location ? errors.location : 'Muayenehane veya çalıştığınız yerin adresini giriniz'}
+                                            className='mb-4'
+                                        >
+                                            <Input
+                                                name='location'
+                                                placeholder='Örn: Ankara, Çankaya, Kızılay Mahallesi...'
+                                                value={values.location}
+                                                onChange={handleChange}
+                                                onBlur={handleBlur}
+                                                size='large'
+                                                className='rounded-lg'
+                                            />
+                                        </Form.Item>
+                                    </>
                                 )}
 
                                 {/* Doctor Alert */}

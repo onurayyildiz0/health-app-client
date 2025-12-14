@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, TimePicker, message, Spin } from 'antd';
+import { Card, Button, TimePicker, message, Spin, Input, InputNumber } from 'antd';
+import { EnvironmentOutlined, DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import axiosInstance from "../api/axios";
 
@@ -23,6 +24,8 @@ const defaultClocks = days.reduce((acc, day) => {
 
 export default function DoctorScheduleSettings() {
     const [clocks, setClocks] = useState(defaultClocks);
+    const [location, setLocation] = useState('');
+    const [consultationFee, setConsultationFee] = useState(0);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -37,7 +40,14 @@ export default function DoctorScheduleSettings() {
                 } else {
                     setClocks(defaultClocks);
                 }
-                console.log("çalışma saatleri :", clocks)
+                // Location bilgisini de set et
+                if (res.data.location) {
+                    setLocation(res.data.location);
+                }
+                // ConsultationFee bilgisini de set et
+                if (res.data.consultationFee !== undefined) {
+                    setConsultationFee(res.data.consultationFee);
+                }
             } catch {
                 message.error('Çalışma saatleri yüklenemedi');
             } finally {
@@ -60,8 +70,8 @@ export default function DoctorScheduleSettings() {
     const handleSave = async () => {
         try {
             setSaving(true);
-            await axiosInstance.put('/doctors/me/schedule', { clocks });
-            message.success('Çalışma saatleri kaydedildi');
+            await axiosInstance.put('/doctors/me/schedule', { clocks, location, consultationFee });
+            message.success('Çalışma saatleri, lokasyon ve muayene ücreti kaydedildi');
         } catch {
             message.error('Kayıt başarısız');
         } finally {
@@ -70,30 +80,77 @@ export default function DoctorScheduleSettings() {
     };
 
     return (
-        <Card title="Çalışma Saatlerim" className="max-w-xl mx-auto mt-8">
+        <Card title="Çalışma Saatlerim ve Lokasyon" className="max-w-xl mx-auto mt-8">
             {loading ? <Spin /> : (
                 <div className="space-y-4">
-                    {days.map(day => (
-                        <div key={day} className="flex items-center gap-4">
-                            <span className="w-24">{dayLabels[day]}</span>
-                            <TimePicker
-                                value={clocks[day].start ? dayjs(clocks[day].start, 'HH:mm') : null}
-                                onChange={v => handleChange(day, 'start', v)}
-                                format="HH:mm"
-                                minuteStep={15}
-                                placeholder="Başlangıç"
-                            />
-                            <span>-</span>
-                            <TimePicker
-                                value={clocks[day].end ? dayjs(clocks[day].end, 'HH:mm') : null}
-                                onChange={v => handleChange(day, 'end', v)}
-                                format="HH:mm"
-                                minuteStep={15}
-                                placeholder="Bitiş"
-                            />
-                        </div>
-                    ))}
-                    <Button type="primary" onClick={handleSave} loading={saving} className="mt-4">Kaydet</Button>
+                    {/* Muayene Ücreti Input */}
+                    <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            <DollarOutlined className="mr-2" />
+                            Saat Başı Muayene Ücreti (TL)
+                        </label>
+                        <InputNumber
+                            value={consultationFee}
+                            onChange={setConsultationFee}
+                            min={0}
+                            step={50}
+                            size="large"
+                            placeholder="Ücret"
+                            style={{ width: '100%' }}
+                            formatter={value => `₺ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={value => value.replace(/₺\s?|(,*)/g, '')}
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                            Hastalarınızın randevu alırken ödeyeceği saat başı muayene ücretinizi belirleyin
+                        </p>
+                    </div>
+
+                    {/* Lokasyon Input */}
+                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            <EnvironmentOutlined className="mr-2" />
+                            Muayenehane/Hastane Lokasyonu
+                        </label>
+                        <Input
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                            placeholder="Örn: Ankara, Çankaya, Kızılay Mahallesi..."
+                            size="large"
+                            prefix={<EnvironmentOutlined />}
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                            Hastalarınızın sizi kolayca bulabilmesi için muayenehanenizin veya çalıştığınız hastanenin adresini girin
+                        </p>
+                    </div>
+
+                    {/* Çalışma Saatleri */}
+                    <div className="border-t pt-4">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3">Haftalık Çalışma Saatleri</h4>
+                        {days.map(day => (
+                            <div key={day} className="flex items-center gap-4 mb-3">
+                                <span className="w-24 text-sm">{dayLabels[day]}</span>
+                                <TimePicker
+                                    value={clocks[day].start ? dayjs(clocks[day].start, 'HH:mm') : null}
+                                    onChange={v => handleChange(day, 'start', v)}
+                                    format="HH:mm"
+                                    minuteStep={15}
+                                    placeholder="Başlangıç"
+                                />
+                                <span>-</span>
+                                <TimePicker
+                                    value={clocks[day].end ? dayjs(clocks[day].end, 'HH:mm') : null}
+                                    onChange={v => handleChange(day, 'end', v)}
+                                    format="HH:mm"
+                                    minuteStep={15}
+                                    placeholder="Bitiş"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <Button type="primary" onClick={handleSave} loading={saving} className="mt-4 w-full" size="large">
+                        Kaydet
+                    </Button>
                 </div>
             )}
         </Card>

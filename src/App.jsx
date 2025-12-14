@@ -21,6 +21,9 @@ import DoctorAppointments from './pages/doctor/DoctorAppointments'
 import UserManagement from './pages/admin/UserManagement'
 import ProfileSettings from './pages/settings/ProfileSettings';
 import Doctors from './pages/doctors/Doctors';
+import PaymentPage from './pages/PaymentPage';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentFailed from './pages/PaymentDailed';
 
 import { useSelector } from 'react-redux';
 import { selectAuthLoading } from './store/slices/authSlice';
@@ -45,6 +48,9 @@ function App() {
           <Route path='/reset-password/:token' element={<ResetPassword />} />
           <Route path='/about' element={<About />} />
           <Route path='/doctors' element={<Doctors />} />
+          <Route path='/payment' element={<PaymentPage />} />
+          <Route path='/payment-success' element={<PaymentSuccess />} />
+          <Route path='/payment-failed' element={<PaymentFailed />} />
 
           {/* Dashboard Routes - Nested with Outlet */}
           <Route path="/dashboard">

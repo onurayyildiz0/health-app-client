@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, Form, DatePicker, Input, Button, Table, message, Spin, Empty } from 'antd';
+import { CalendarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { addUnavailableDate, getMyDoctorProfile } from '../api/doctorService'; // Dosya yolunu kendine göre ayarla
 
@@ -77,7 +78,15 @@ export default function DoctorTimeOff() {
     ];
 
     return (
-        <Card title="İzin ve Tatil Ayarları" className="max-w-3xl mx-auto mt-8 shadow-md">
+        <Card 
+            title={
+                <div className="flex items-center gap-2">
+                    <CalendarOutlined className="text-blue-500" />
+                    <span>İzin Dönemlerim</span>
+                </div>
+            } 
+            className="max-w-3xl mx-auto mt-8 shadow-md"
+        >
 
             {/* --- EKLEME FORMU --- */}
             <Card type="inner" title="Yeni İzin Ekle" className="mb-6 bg-gray-50">

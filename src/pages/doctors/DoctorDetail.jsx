@@ -302,6 +302,19 @@ const DoctorDetail = () => {
 
                                 <Divider />
 
+                                <Title level={4}>Muayene Ücreti</Title>
+                                <Space direction="vertical" size="small" className="mb-4">
+                                    {doctor.consultationFee > 0 ? (
+                                        <Text strong style={{ fontSize: '20px', color: '#1890ff' }}>
+                                            ₺{doctor.consultationFee} <Text type="secondary" style={{ fontSize: '14px' }}>/ saat</Text>
+                                        </Text>
+                                    ) : (
+                                        <Text type="secondary">Ücret bilgisi belirtilmemiş</Text>
+                                    )}
+                                </Space>
+
+                                <Divider />
+
                                 <Title level={4}>İletişim Bilgileri</Title>
                                 <Space direction="vertical" size="small">
                                     {doctor.user?.email && (
@@ -312,6 +325,11 @@ const DoctorDetail = () => {
                                     {doctor.user?.phone && (
                                         <Text>
                                             <PhoneOutlined /> {doctor.user.phone}
+                                        </Text>
+                                    )}
+                                    {doctor.location && (
+                                        <Text>
+                                            <EnvironmentOutlined /> {doctor.location}
                                         </Text>
                                     )}
                                     {doctor.address && (
