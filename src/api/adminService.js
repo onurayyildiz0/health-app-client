@@ -65,18 +65,13 @@ export const getPendingDoctors = async () => {
  * 
  * Doktorun yüklediği belgeyi indirir
  */
+// adminService.js içindeki fonksiyonun YENİ HALİ
 export const downloadDoctorDocument = async (userId) => {
-    const response = await axiosInstance.get(`/admin/doctor-document/${userId}`, {
+    // Sadece veriyi çek ve return et. 
+    // Blob oluşturma ve indirme işini UserManagement.jsx zaten yapıyor.
+    return await axiosInstance.get(`/admin/doctor-document/${userId}`, {
         responseType: 'blob'
     });
-
-    // Blob URL oluştur ve yeni sekmede aç
-    const blob = new Blob([response.data], { type: 'application/pdf' });
-    const url = window.URL.createObjectURL(blob);
-    window.open(url, '_blank');
-
-    // Bellek temizliği için URL'i serbest bırak
-    setTimeout(() => window.URL.revokeObjectURL(url), 100);
 };
 
 /**

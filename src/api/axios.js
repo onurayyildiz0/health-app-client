@@ -20,7 +20,7 @@ import axios from 'axios';
  * Örnek:
  * axios.get('/auth/login') → https://health-app-xequ.onrender.com/api/auth/login
  */
-const API_URL = import.meta.env.VITE_API_URL || 'https://health-app-xequ.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 /**
  * RATE LIMITING

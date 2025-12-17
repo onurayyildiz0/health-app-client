@@ -185,13 +185,8 @@ const UserManagement = () => {
                                 type="default"
                                 size="small"
                                 icon={<DownloadOutlined />}
-                                onClick={async () => {
-                                    try {
-                                        await adminService.downloadDoctorDocument(record._id);
-                                    } catch {
-                                        message.error('Belge yüklenirken hata oluştu');
-                                    }
-                                }}
+                                onClick={() => handleDownloadDocument(record.doctorId || record._id, record.name)
+                                }
                             >
                                 Belge
                             </Button>
@@ -234,6 +229,42 @@ const UserManagement = () => {
         user.email?.toLowerCase().includes(searchText.toLowerCase())
     );
 
+    // Belge indirme işlemini yapan yardımcı fonksiyon
+
+    // UserManagement.jsx içinde handleDownloadDocument fonksiyonu
+
+    const handleDownloadDocument = async (doctorId, doctorName) => {
+        try {
+            const response = await adminService.downloadDoctorDocument(doctorId);
+
+            // KONTROL: Eğer response hiç gelmediyse işlemi durdur
+            if (!response) {
+                console.error("Hata: Sunucudan yanıt (response) alınamadı.");
+                message.warning("Dosya indirilemedi, sunucu yanıt vermedi.");
+                return;
+            }
+
+            // HATA ÇÖZÜMÜ: response?.data diyerek güvenli erişim sağlıyoruz
+            // Eğer data yoksa response'un kendisini (muhtemelen blob) kullanır.
+            const fileData = response?.data || response;
+
+            const blob = new Blob([fileData], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const fileName = `doktor-belgesi-${doctorName || 'doktor'}.pdf`;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+        } catch (error) {
+            console.error("Belge indirme hatası:", error);
+            message.error('Belge indirilirken bir hata oluştu.');
+        }
+    };
+
     return (
         <div className='max-w-[1400px] mx-auto'>
             {/* Bekleyen Doktorlar */}
@@ -243,7 +274,7 @@ const UserManagement = () => {
                     title={
                         <span>
                             <CheckCircleOutlined className="mr-2 text-orange-500" />
-                            Onay Bekleyen Doktorlar ({pendingDoctors.length})
+                            Onay Bekleyen Doktorlar {pendingDoctors.length}
                         </span>
                     }
                 >
@@ -274,13 +305,7 @@ const UserManagement = () => {
                                                     type="default"
                                                     size="small"
                                                     icon={<EyeOutlined />}
-                                                    onClick={async () => {
-                                                        try {
-                                                            await adminService.downloadDoctorDocument(doctor.user._id);
-                                                        } catch {
-                                                            message.error('Belge yüklenirken hata oluştu');
-                                                        }
-                                                    }}
+                                                    onClick={() => handleDownloadDocument(doctor.user._id, doctor.user?.name)}
                                                 >
                                                     Belge
                                                 </Button>
