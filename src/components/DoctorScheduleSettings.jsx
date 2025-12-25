@@ -58,13 +58,26 @@ export default function DoctorScheduleSettings() {
     }, []);
 
     const handleChange = (day, type, value) => {
-        setClocks(prev => ({
-            ...prev,
-            [day]: {
-                ...prev[day],
-                [type]: value ? value.format('HH:mm') : '',
-            },
-        }));
+        if (type === 'start' && value) {
+            // Başlangıç değişince bitişi otomatik 1 saat sonra ayarla
+            const startTime = dayjs(value);
+            const endTime = startTime.add(1, 'hour');
+            setClocks(prev => ({
+                ...prev,
+                [day]: {
+                    start: value.format('HH:mm'),
+                    end: endTime.format('HH:mm'),
+                },
+            }));
+        } else {
+            setClocks(prev => ({
+                ...prev,
+                [day]: {
+                    ...prev[day],
+                    [type]: value ? value.format('HH:mm') : '',
+                },
+            }));
+        }
     };
 
     const handleSave = async () => {

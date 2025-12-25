@@ -39,6 +39,7 @@ import dayjs from 'dayjs';
 import * as doctorService from '../../api/doctorService';
 import * as reviewService from '../../api/reviewService';
 import * as userService from '../../api/userService';
+import * as appointmentService from '../../api/appointmentService';
 import {
     fetchDoctorByIdStart,
     fetchDoctorByIdSuccess,
@@ -73,9 +74,17 @@ const DoctorDetail = () => {
     const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
     const [reviewForm] = Form.useForm();
     const [submittingReview, setSubmittingReview] = useState(false);
+    const [userAppointments, setUserAppointments] = useState([]);
 
     // Favoride mi kontrol et
     const isFavorite = Array.isArray(favoriteDoctors) && favoriteDoctors.some(d => d?._id === id);
+
+    // Geçmiş randevu kontrolü
+    const hasPastAppointmentWithDoctor = userAppointments.some(apt => 
+        apt.doctor._id === id && 
+        (apt.status === 'completed' || apt.status === 'cancelled') && 
+        new Date(apt.date) < new Date()
+    );
 
     // Doktor detayını yükle
     useEffect(() => {
@@ -95,6 +104,20 @@ const DoctorDetail = () => {
         };
 
         fetchDoctorDetail();
+
+        // Kullanıcının randevularını çek (yorum yapabilmek için geçmiş randevu kontrolü)
+        if (user && user.role === 'patient') {
+            const fetchUserAppointments = async () => {
+                try {
+                    const response = await appointmentService.getPatientAppointments();
+                    setUserAppointments(response.data || response);
+                } catch (err) {
+                    console.error('Randevular yüklenirken hata:', err);
+                }
+            };
+            fetchUserAppointments();
+        }
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
@@ -364,7 +387,7 @@ const DoctorDetail = () => {
                             <Title level={4} className="!mb-0">
                                 Değerlendirmeler ({reviews?.length || 0})
                             </Title>
-                            {user?.role === 'patient' && (
+                            {user?.role === 'patient' && hasPastAppointmentWithDoctor && (
                                 <Button
                                     type="primary"
                                     icon={<StarFilled />}

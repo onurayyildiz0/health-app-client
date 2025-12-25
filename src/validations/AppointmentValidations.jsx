@@ -41,12 +41,19 @@ export const createAppointmentSchema = Yup.object().shape({
         .required('Lütfen bitiş saati seçin')
         .matches(
             /^([01]\d|2[0-3]):([0-5]\d)$/,
-            'Saat formatı HH:mm olmalıdır (örn: 10:00)'
+            'Saat formatı HH:mm olmalıdır'
         )
         .test('is-after-start', 'Bitiş saati başlangıç saatinden sonra olmalı', function (value) {
             const { start } = this.parent;
             if (!start || !value) return true;
             return value > start;
+        })
+        .test('same-minute', 'Bitiş dakikası başlangıç dakikasıyla aynı olmalı', function (value) {
+            const { start } = this.parent;
+            if (!start || !value) return true;
+            const startMinute = start.split(':')[1];
+            const endMinute = value.split(':')[1];
+            return startMinute === endMinute;
         }),
 
     // Notlar opsiyonel, maksimum 200 karakter
@@ -77,6 +84,13 @@ export const updateAppointmentSchema = Yup.object().shape({
             const { start } = this.parent;
             if (!start || !value) return true;
             return value > start;
+        })
+        .test('same-minute', 'Bitiş dakikası başlangıç dakikasıyla aynı olmalı', function (value) {
+            const { start } = this.parent;
+            if (!start || !value) return true;
+            const startMinute = start.split(':')[1];
+            const endMinute = value.split(':')[1];
+            return startMinute === endMinute;
         }),
 
     notes: Yup.string()

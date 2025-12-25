@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Select, DatePicker, TimePicker, Input, Alert, message, ConfigProvider } from 'antd';
-import { CalendarOutlined, ClockCircleOutlined, MedicineBoxOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Card, Button, Select, DatePicker, TimePicker, Input, Alert, message, ConfigProvider, Avatar } from 'antd';
+import { CalendarOutlined, ClockCircleOutlined, MedicineBoxOutlined, FileTextOutlined, SearchOutlined, EnvironmentOutlined, MailOutlined, DollarOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Formik, Form } from 'formik';
@@ -30,6 +30,9 @@ const CreateAppointment = () => {
 
     const [doctors, setDoctors] = useState([]);
     const [loadingDoctors, setLoadingDoctors] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedSpeciality, setSelectedSpeciality] = useState('');
+    const [selectedLocation, setSelectedLocation] = useState('');
 
     // Doktor listesini çek
     useEffect(() => {
@@ -120,13 +123,121 @@ const CreateAppointment = () => {
                 >
                     {({ values, errors, touched, setFieldValue, isSubmitting }) => {
 
+                        // --- YENİ EKLENEN MANTIK: Doktor filtreleme ---
+                        const locations = [...new Set(doctors.map(d => d.location).filter(Boolean))].sort();
+                        const specialities = [...new Set(doctors.map(d => d.speciality).filter(Boolean))].sort();
+
+                        const filteredDoctors = doctors.filter(doctor => {
+                            const matchesSearch = !searchTerm || doctor.user?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+                            const matchesSpeciality = !selectedSpeciality || doctor.speciality === selectedSpeciality;
+                            const matchesLocation = !selectedLocation || doctor.location === selectedLocation;
+                            return matchesSearch && matchesSpeciality && matchesLocation;
+                        });
+
                         // --- YENİ EKLENEN MANTIK: Seçilen Doktoru Bul ---
                         // Formdaki 'doctor' (ID) değerine göre tüm doktor listesinden o doktorun objesini buluyoruz.
                         // Bu sayede o doktorun 'unavailableDates' verisine erişebiliriz.
                         const selectedDoctorData = doctors.find(d => d._id === values.doctor);
 
+                        // --- YENİ EKLENEN MANTIK: Doktorun çalışma saatlerine göre saat slotlarını hesapla ---
+                        const dayIndex = values.date ? dayjs(values.date).day() : null; // 0=sunday, 1=monday, etc.
+                        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                        const day = dayIndex !== null ? dayNames[dayIndex] : null;
+                        const schedule = selectedDoctorData?.clocks?.[day];
+
+                        const generateTimeSlots = (start, end) => {
+                            const slots = [];
+                            if (!start || !end) return slots;
+                            const startTime = dayjs(`2000-01-01 ${start}`);
+                            const endTime = dayjs(`2000-01-01 ${end}`);
+                            let current = startTime;
+                            while (current.isBefore(endTime)) {
+                                slots.push(current.format('HH:mm'));
+                                current = current.add(60, 'minute');
+                            }
+                            return slots;
+                        };
+
+                        const timeSlots = schedule ? generateTimeSlots(schedule.start, schedule.end) : [];
+
                         return (
                             <Form className="space-y-6">
+                                {/* Doktor Filtreleme */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">
+                                            <SearchOutlined className="mr-2" />
+                                            Doktor Ara
+                                        </label>
+                                        <Input
+                                            size="large"
+                                            placeholder="Doktor adı ara..."
+                                            value={searchTerm}
+                                            onChange={(e) => {
+                                                setSearchTerm(e.target.value);
+                                                setFieldValue('doctor', '');
+                                                setFieldValue('date', null);
+                                                setFieldValue('start', '');
+                                                setFieldValue('end', '');
+                                            }}
+                                            prefix={<SearchOutlined />}
+                                            allowClear
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">
+                                            <MedicineBoxOutlined className="mr-2" />
+                                            Branş
+                                        </label>
+                                        <Select
+                                            size="large"
+                                            placeholder="Branş seçin"
+                                            value={selectedSpeciality || undefined}
+                                            onChange={(value) => {
+                                                setSelectedSpeciality(value || '');
+                                                setFieldValue('doctor', '');
+                                                setFieldValue('date', null);
+                                                setFieldValue('start', '');
+                                                setFieldValue('end', '');
+                                            }}
+                                            className="w-full"
+                                            allowClear
+                                        >
+                                            {specialities.map(spec => (
+                                                <Select.Option key={spec} value={spec}>
+                                                    {spec}
+                                                </Select.Option>
+                                            ))}
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">
+                                            <EnvironmentOutlined className="mr-2" />
+                                            Lokasyon
+                                        </label>
+                                        <Select
+                                            size="large"
+                                            placeholder="Lokasyon seçin"
+                                            value={selectedLocation || undefined}
+                                            onChange={(value) => {
+                                                setSelectedLocation(value || '');
+                                                setFieldValue('doctor', '');
+                                                setFieldValue('date', null);
+                                                setFieldValue('start', '');
+                                                setFieldValue('end', '');
+                                            }}
+                                            className="w-full"
+                                            allowClear
+                                        >
+                                            {locations.map(loc => (
+                                                <Select.Option key={loc} value={loc}>
+                                                    {loc}
+                                                </Select.Option>
+                                            ))}
+                                        </Select>
+                                    </div>
+                                </div>
+
                                 {/* Doktor Seçimi */}
                                 <div>
                                     <label className="block text-sm font-medium mb-2">
@@ -151,7 +262,7 @@ const CreateAppointment = () => {
                                             option?.children?.toLowerCase().includes(input.toLowerCase())
                                         }
                                     >
-                                        {doctors.map((doctor) => (
+                                        {filteredDoctors.map((doctor) => (
                                             <Select.Option key={doctor._id} value={doctor._id}>
                                                 {`${doctor.user?.name || 'İsimsiz'} - ${doctor.speciality || 'Branş Yok'}${doctor.location ? ` - ${doctor.location}` : ''}`}
                                             </Select.Option>
@@ -161,6 +272,50 @@ const CreateAppointment = () => {
                                         <div className="text-red-500 text-sm mt-1">{errors.doctor}</div>
                                     )}
                                 </div>
+
+                                {/* Seçilen Doktor Bilgileri */}
+                                {selectedDoctorData && (
+                                    <Card size="small" className="bg-blue-50 border-blue-200">
+                                        <div className="flex items-center gap-4">
+                                            <Avatar
+                                                size={64}
+                                                src={selectedDoctorData.user?.avatar}
+                                                icon={<UserOutlined />}
+                                                className="bg-blue-500"
+                                            />
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-lg">
+                                                    Dr. {selectedDoctorData.user?.name}
+                                                </div>
+                                                <div className="text-gray-600 mb-2">
+                                                    {selectedDoctorData.speciality}
+                                                </div>
+                                                <div className="flex flex-wrap gap-4 text-sm">
+                                                    {selectedDoctorData.user?.email && (
+                                                        <div className="flex items-center gap-1">
+                                                            <MailOutlined /> {selectedDoctorData.user.email}
+                                                        </div>
+                                                    )}
+                                                    {selectedDoctorData.location && (
+                                                        <div className="flex items-center gap-1">
+                                                            <EnvironmentOutlined /> {selectedDoctorData.location}
+                                                        </div>
+                                                    )}
+                                                    {selectedDoctorData.consultationFee && (
+                                                        <div className="flex items-center gap-1">
+                                                            <DollarOutlined /> ₺{selectedDoctorData.consultationFee}/saat
+                                                        </div>
+                                                    )}
+                                                    {schedule && (
+                                                        <div className="flex items-center gap-1">
+                                                            <ClockCircleOutlined /> {schedule.start} - {schedule.end}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                )}
 
                                 {/* Tarih Seçimi */}
                                 <div>
@@ -224,34 +379,27 @@ const CreateAppointment = () => {
                                         </label>
                                         <Select
                                             size="large"
-                                            placeholder="Başlangıç saati seçiniz"
+                                            placeholder={timeSlots.length > 0 ? "Başlangıç saati seçiniz" : "Doktorun çalışma saati yok"}
                                             value={values.start || undefined}
                                             onChange={value => {
                                                 setFieldValue('start', value);
-                                                const [hour, minute] = value.split(':');
-                                                const endHour = (parseInt(hour, 10) + 1).toString().padStart(2, '0');
-                                                setFieldValue('end', `${endHour}:${minute}`);
+                                                const startTime = dayjs(`2000-01-01 ${value}`);
+                                                const endTime = startTime.add(1, 'hour');
+                                                setFieldValue('end', endTime.format('HH:mm'));
                                             }}
                                             className="w-full"
-                                            // Eğer doktor seçili değilse veya tarih seçili değilse saati disable et
-                                            disabled={!values.doctor || !values.date}
+                                            // Eğer doktor seçili değilse veya tarih seçili değilse veya çalışma saati yoksa saati disable et
+                                            disabled={!values.doctor || !values.date || timeSlots.length === 0}
                                         >
-                                            {Array.from({ length: 11 }, (_, i) => {
-                                                const hour = 8 + i;
-                                                const hourStr = hour.toString().padStart(2, '0') + ':00';
-                                                return (
-                                                    <Select.Option key={hourStr} value={hourStr}>
-                                                        {hourStr}
-                                                    </Select.Option>
-                                                );
-                                            })}
+                                            {timeSlots.map(time => (
+                                                <Select.Option key={time} value={time}>
+                                                    {time}
+                                                </Select.Option>
+                                            ))}
                                         </Select>
                                         {errors.start && touched.start && (
                                             <div className="text-red-500 text-sm mt-1">{errors.start}</div>
                                         )}
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            ℹ️ Lütfen doktorun çalışma saatlerine dikkat edin
-                                        </div>
                                     </div>
                                 </div>
 

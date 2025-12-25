@@ -91,7 +91,8 @@ const UserManagement = () => {
             await adminService.approveDoctor(doctorId);
             dispatch(approveDoctorSuccess(doctorId));
             message.success('Doktor onaylandı');
-            fetchUsers(); // Listeyi yenile
+            window.location.reload();
+            
         } catch (err) {
             dispatch(approveDoctorFailure(err.message));
             message.error('Doktor onaylanamadı');
