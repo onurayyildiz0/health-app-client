@@ -23,7 +23,7 @@ import ProfileSettings from './pages/settings/ProfileSettings';
 import Doctors from './pages/doctors/Doctors';
 import PaymentPage from './pages/PaymentPage';
 import PaymentSuccess from './pages/PaymentSuccess';
-import PaymentFailed from './pages/PaymentDailed';
+import PaymentFailed from './pages/PaymentFailed';
 
 import { useSelector } from 'react-redux';
 import { selectAuthLoading } from './store/slices/authSlice';

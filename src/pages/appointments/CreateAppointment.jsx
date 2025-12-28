@@ -2,18 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Select, DatePicker, TimePicker, Input, Alert, message, ConfigProvider, Avatar } from 'antd';
 import { CalendarOutlined, ClockCircleOutlined, MedicineBoxOutlined, FileTextOutlined, SearchOutlined, EnvironmentOutlined, MailOutlined, DollarOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { Formik, Form } from 'formik';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
-import enUS from 'antd/locale/en_US';
+import tr_TR from 'antd/locale/tr_TR';
 import * as appointmentService from '../../api/appointmentService';
 import axiosInstance from '../../api/axios';
 import { createAppointmentSchema } from '../../validations/AppointmentValidations';
 import {
-    createAppointmentStart,
-    createAppointmentSuccess,
-    createAppointmentFailure,
     selectAppointmentLoading,
     selectAppointmentError
 } from '../../store/slices/appointmentSlice';
@@ -24,7 +21,6 @@ const { TextArea } = Input;
 
 const CreateAppointment = () => {
     const navigate = useNavigate();
-    const dispatch = useDispatch();
     const loading = useSelector(selectAppointmentLoading);
     const error = useSelector(selectAppointmentError);
 
@@ -59,8 +55,14 @@ const CreateAppointment = () => {
 
     const handleSubmit = async (values, { setSubmitting, resetForm }) => {
         try {
-            dispatch(createAppointmentStart());
+            // Seçilen doktor verisini bul
+            const selectedDoctor = doctors.find(d => d._id === values.doctor);
+            if (!selectedDoctor) {
+                message.error('Doktor bilgisi bulunamadı');
+                return;
+            }
 
+            // Randevu verilerini hazırla
             const appointmentData = {
                 doctor: values.doctor,
                 date: dayjs(values.date).format('YYYY-MM-DD'),
@@ -69,28 +71,39 @@ const CreateAppointment = () => {
                 notes: values.notes || ''
             };
 
-            const response = await appointmentService.createAppointment(appointmentData);
+            // Randevuyu backend'de oluştur (pending_payment status ile)
+            const response = await appointmentService.createAppointment({
+                ...appointmentData,
+                doctorData: selectedDoctor
+            });
 
-            dispatch(createAppointmentSuccess(response));
-            message.success('Randevu başarıyla oluşturuldu! Ödeme sayfasına yönlendiriliyorsunuz...');
-            resetForm();
+            if (response && response._id) {
+                // Randevu ID'sini ve verilerini localStorage'a kaydet
+                localStorage.setItem('pendingAppointmentId', response._id);
+                localStorage.setItem('pendingAppointment', JSON.stringify(appointmentData));
+                localStorage.setItem('doctorData', JSON.stringify(selectedDoctor));
 
-            // Randevu oluşturulduktan sonra ödeme sayfasına yönlendir
-            setTimeout(() => {
-                navigate(`/payment?appointmentId=${response._id}`);
-            }, 1500);
+                message.success('Randevu oluşturuldu! Ödeme sayfasına yönlendiriliyorsunuz...');
+                resetForm();
+
+                // Ödeme sayfasına yönlendir
+                setTimeout(() => {
+                    navigate(`/payment?appointmentId=${response._id}`);
+                }, 1500);
+            } else {
+                message.error(response?.message || 'Randevu oluşturulamadı');
+            }
 
         } catch (err) {
-            const errorMessage = err.response?.data?.message || err.message || 'Randevu oluşturulurken hata oluştu';
-            dispatch(createAppointmentFailure(errorMessage));
-            message.error(errorMessage);
+            console.error('Randevu oluşturma hatası:', err);
+            message.error('Randevu oluşturulurken hata oluştu');
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <ConfigProvider locale={enUS}>
+        <ConfigProvider locale={tr_TR}>
             <div className="max-w-4xl mx-auto">
                 <Card
                     title={
@@ -306,11 +319,33 @@ const CreateAppointment = () => {
                                                             <DollarOutlined /> ₺{selectedDoctorData.consultationFee}/saat
                                                         </div>
                                                     )}
-                                                    {schedule && (
-                                                        <div className="flex items-center gap-1">
-                                                            <ClockCircleOutlined /> {schedule.start} - {schedule.end}
-                                                        </div>
-                                                    )}
+                                                </div>
+                                                {/* Çalışma Saatleri */}
+                                                <div className="mt-3">
+                                                    <div className="text-sm font-medium mb-2 flex items-center gap-1">
+                                                        <ClockCircleOutlined /> Çalışma Saatleri
+                                                    </div>
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                                        {Object.entries(selectedDoctorData.clocks || {}).map(([day, hours]) => {
+                                                            const dayNames = {
+                                                                monday: 'Pazartesi',
+                                                                tuesday: 'Salı',
+                                                                wednesday: 'Çarşamba',
+                                                                thursday: 'Perşembe',
+                                                                friday: 'Cuma',
+                                                                saturday: 'Cumartesi',
+                                                                sunday: 'Pazar'
+                                                            };
+                                                            return (
+                                                                <div key={day} className="bg-white p-2 rounded border">
+                                                                    <div className="font-medium text-gray-700">{dayNames[day]}</div>
+                                                                    <div className="text-gray-600">
+                                                                        {hours.start && hours.end ? `${hours.start} - ${hours.end}` : 'Kapalı'}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -338,10 +373,14 @@ const CreateAppointment = () => {
                                             // 1. Geçmiş tarihleri engelle
                                             if (current < dayjs().startOf('day')) return true;
 
-                                            // 2. Doktor seçilmediyse başka kontrol yapma
+                                            // 2. 2 haftadan sonraki tarihleri engelle
+                                            const twoWeeksFromNow = dayjs().add(2, 'weeks').endOf('day');
+                                            if (current > twoWeeksFromNow) return true;
+
+                                            // 3. Doktor seçilmediyse başka kontrol yapma
                                             if (!selectedDoctorData) return false;
 
-                                            // 3. Doktorun izinli olduğu tarihleri engelle
+                                            // 4. Doktorun izinli olduğu tarihleri engelle
                                             // Backend'den 'unavailableDates' array olarak gelmeli
                                             if (selectedDoctorData.unavailableDates && selectedDoctorData.unavailableDates.length > 0) {
                                                 return selectedDoctorData.unavailableDates.some(range => {
@@ -360,7 +399,7 @@ const CreateAppointment = () => {
                                     {/* Bilgilendirme Mesajı */}
                                     {values.doctor && (
                                         <div className="text-xs text-gray-400 mt-1 ml-1">
-                                            * Gri renkli tarihlerde doktor izinlidir veya tarih geçmiştedir.
+                                            * Gri renkli tarihlerde doktor izinlidir, tarih geçmiştedir veya 2 haftadan sonradır.
                                         </div>
                                     )}
 

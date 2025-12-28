@@ -6,7 +6,8 @@ import {
     EyeOutlined,
     CloseCircleOutlined,
     PlusOutlined,
-    UserOutlined
+    UserOutlined,
+    CreditCardOutlined
 } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -89,6 +90,27 @@ const MyAppointments = () => {
         });
     };
 
+    // Tekrar ödeme yap
+    const handleRetryPayment = (appointment) => {
+        const doctorData = appointment.doctor;
+
+        const paymentData = {
+            doctor: doctorData._id,
+            date: appointment.date,
+            start: appointment.start,
+            end: appointment.end,
+            notes: appointment.notes || ''
+        };
+
+        localStorage.setItem('pendingAppointmentId', appointment._id);
+        localStorage.setItem('pendingAppointment', JSON.stringify(paymentData));
+        localStorage.setItem('doctorData', JSON.stringify(doctorData));
+
+        navigate(`/payment?appointmentId=${appointment._id}`);
+    };
+
+
+
     // Randevu detayını göster
     const showAppointmentDetails = (appointment) => {
         setSelectedAppointment(appointment);
@@ -100,7 +122,8 @@ const MyAppointments = () => {
         const statusColors = {
             booked: 'green',
             cancelled: 'red',
-            completed: 'blue'
+            completed: 'blue',
+            pending_payment: 'orange'
         };
         return statusColors[status] || 'default';
     };
@@ -110,7 +133,8 @@ const MyAppointments = () => {
         const statusTexts = {
             booked: 'Rezerve Edildi',
             cancelled: 'İptal Edildi',
-            completed: 'Tamamlandı'
+            completed: 'Tamamlandı',
+            pending_payment: 'Ödeme Bekleniyor'
         };
         return statusTexts[status] || status;
     };
@@ -168,7 +192,8 @@ const MyAppointments = () => {
             filters: [
                 { text: 'Rezerve Edildi', value: 'booked' },
                 { text: 'İptal Edildi', value: 'cancelled' },
-                { text: 'Tamamlandı', value: 'completed' }
+                { text: 'Tamamlandı', value: 'completed' },
+                { text: 'Ödeme Bekleniyor', value: 'pending_payment' }
             ],
             onFilter: (value, record) => record.status === value
         },
@@ -186,7 +211,17 @@ const MyAppointments = () => {
                     >
                         Detay
                     </Button>
-                    {record.status === 'booked' && (
+                    {record.status === 'pending_payment' && (
+                        <Button
+                            size="small"
+                            type="primary"
+                            icon={<CreditCardOutlined />}
+                            onClick={() => handleRetryPayment(record)}
+                        >
+                            Ödeme Yap
+                        </Button>
+                    )}
+                    {(record.status === 'booked' || record.status === 'pending_payment') && (
                         <Button
                             size="small"
                             danger
@@ -315,7 +350,18 @@ const MyAppointments = () => {
                                         >
                                             Detay
                                         </Button>
-                                        {appointment.status === 'booked' && (
+                                        {appointment.status === 'pending_payment' && (
+                                            <Button
+                                                size="small"
+                                                type="primary"
+                                                icon={<CreditCardOutlined />}
+                                                onClick={() => handleRetryPayment(appointment)}
+                                                block
+                                            >
+                                                Ödeme Yap
+                                            </Button>
+                                        )}
+                                        {(appointment.status === 'booked' || appointment.status === 'pending_payment') && (
                                             <Button
                                                 size="small"
                                                 danger

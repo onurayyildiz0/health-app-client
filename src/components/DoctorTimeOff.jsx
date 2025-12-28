@@ -37,10 +37,19 @@ export default function DoctorTimeOff() {
         try {
             setSubmitting(true);
 
+            // Tarih farkını kontrol et: en fazla 1 ay (30 gün)
+            const startDate = values.dates[0];
+            const endDate = values.dates[1];
+            const diffDays = endDate.diff(startDate, 'day');
+            if (diffDays > 30) {
+                message.error("İzin süresi en fazla 1 ay (30 gün) olabilir.");
+                return;
+            }
+
             // Antd RangePicker dayjs objesi döner, string'e çevirmeliyiz
             const payload = {
-                startDate: values.dates[0].format('YYYY-MM-DD'),
-                endDate: values.dates[1].format('YYYY-MM-DD'),
+                startDate: startDate.format('YYYY-MM-DD'),
+                endDate: endDate.format('YYYY-MM-DD'),
                 reason: values.reason
             };
 
@@ -101,8 +110,17 @@ export default function DoctorTimeOff() {
                                 className="w-full"
                                 placeholder={['Başlangıç', 'Bitiş']}
                                 format="DD.MM.YYYY"
-                                // Geçmiş tarihleri seçmeyi engellemek istersen:
-                                disabledDate={(current) => current && current < dayjs().startOf('day')}
+                                disabledDate={(current, type) => {
+                                    if (type === 'end') {
+                                        const startDate = form.getFieldValue('dates')?.[0];
+                                        if (startDate) {
+                                            const maxEnd = startDate.add(1, 'month');
+                                            return current && current > maxEnd;
+                                        }
+                                    }
+                                    // Başlangıç için geçmiş tarihleri engelle
+                                    return current && current < dayjs().startOf('day');
+                                }}
                             />
                         </Form.Item>
 

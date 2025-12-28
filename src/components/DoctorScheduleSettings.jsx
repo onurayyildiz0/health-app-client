@@ -156,6 +156,13 @@ export default function DoctorScheduleSettings() {
                                     format="HH:mm"
                                     minuteStep={15}
                                     placeholder="Bitiş"
+                                    disabledTime={() => ({
+                                        disabledMinutes: () => {
+                                            if (!clocks[day].start) return [];
+                                            const startMinute = parseInt(clocks[day].start.split(':')[1]);
+                                            return Array.from({length: 60}, (_, i) => i).filter(min => min !== startMinute);
+                                        }
+                                    })}
                                 />
                             </div>
                         ))}
