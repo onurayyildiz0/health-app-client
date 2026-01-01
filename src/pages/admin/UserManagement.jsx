@@ -11,18 +11,22 @@ import {
     Select,
     Avatar,
     Popconfirm,
-    Tooltip
+    Tooltip,
+    Form,
+    Row,
+    Col,
+    Badge
 } from 'antd';
 import {
     UserOutlined,
     DeleteOutlined,
     CheckCircleOutlined,
-    CloseCircleOutlined,
     SearchOutlined,
-    FilterOutlined,
     FileTextOutlined,
     EyeOutlined,
-    DownloadOutlined
+    DownloadOutlined,
+    EditOutlined,
+    SafetyCertificateOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -49,16 +53,23 @@ const UserManagement = () => {
     const pendingDoctors = useSelector(selectPendingDoctors);
     const loading = useSelector(selectAdminLoading);
 
+    // Filtreleme State'leri
     const [selectedRole, setSelectedRole] = useState('');
     const [searchText, setSearchText] = useState('');
 
-    // Kullanıcıları yükle
+    // Rol Düzenleme State'leri
+    const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+    const [editingUser, setEditingUser] = useState(null);
+    const [roleForm] = Form.useForm();
+
+    // Sayfa Yüklendiğinde
     useEffect(() => {
         fetchUsers();
         fetchPendingDoctors();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Kullanıcıları Çek
     const fetchUsers = async (role = '') => {
         try {
             dispatch(fetchUsersStart());
@@ -75,6 +86,7 @@ const UserManagement = () => {
         }
     };
 
+    // Bekleyen Doktorları Çek
     const fetchPendingDoctors = async () => {
         try {
             const response = await adminService.getPendingDoctors();
@@ -84,53 +96,98 @@ const UserManagement = () => {
         }
     };
 
-    // Doktor onayla
+    // Doktor Onayla
     const handleApproveDoctor = async (doctorId) => {
         try {
             dispatch(approveDoctorStart());
-            await adminService.approveDoctor(doctorId);
+            await adminService.approveDoctor(doctorId); // userId veya doctorId
             dispatch(approveDoctorSuccess(doctorId));
-            message.success('Doktor onaylandı');
-            window.location.reload();
+            message.success('Doktor hesabı onaylandı');
             
+            // Listeleri güncelle
+            fetchPendingDoctors();
+            fetchUsers();
         } catch (err) {
             dispatch(approveDoctorFailure(err.message));
-            message.error('Doktor onaylanamadı');
+            message.error('Onaylama işlemi başarısız');
         }
     };
 
-    // Kullanıcı sil
+    // Kullanıcı Sil
     const handleDeleteUser = async (userId) => {
         try {
             await adminService.deleteUser(userId);
             dispatch(deleteUserSuccess(userId));
-            message.success('Kullanıcı silindi');
+            message.success('Kullanıcı başarıyla silindi');
         } catch {
-            message.error('Kullanıcı silinemedi');
+            message.error('Silme işlemi başarısız');
         }
     };
 
-    // Rol filtrele
+    // Belge İndir
+    const handleDownloadDocument = async (doctorId, doctorName) => {
+        try {
+            const response = await adminService.downloadDoctorDocument(doctorId);
+            if (!response) {
+                message.warning("Dosya sunucudan alınamadı.");
+                return;
+            }
+            const fileData = response?.data || response;
+            const blob = new Blob([fileData], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const fileName = `doktor-belge-${doctorName || 'doc'}.pdf`;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Belge hatası:", error);
+            message.error('Belge indirilemedi. Dosya mevcut olmayabilir.');
+        }
+    };
+
+    // Rol Filtreleme
     const handleRoleFilter = (role) => {
         setSelectedRole(role || '');
-        if (!role) {
-            fetchUsers(''); // Tümünü getir
-        } else {
-            fetchUsers(role);
+        fetchUsers(role || '');
+    };
+
+    // Rol Güncelleme Modalını Aç
+    const openEditModal = (user) => {
+        setEditingUser(user);
+        roleForm.setFieldsValue({ role: user.role });
+        setIsEditModalVisible(true);
+    };
+
+    // Rolü Güncelle (Backend'e İstek)
+    const handleUpdateRole = async (values) => {
+        try {
+            await adminService.updateUserRole(editingUser.id, values.role);
+            message.success(`Kullanıcı rolü "${values.role}" olarak güncellendi.`);
+            setIsEditModalVisible(false);
+            setEditingUser(null);
+            fetchUsers(selectedRole); // Listeyi yenile
+        } catch (error) {
+            message.error(error.response?.data?.message || 'Rol güncellenemedi');
         }
     };
 
-    // Kullanıcı tablosu kolonları
+    // Tablo Kolonları
     const userColumns = [
         {
             title: 'Kullanıcı',
             key: 'user',
+            fixed: 'left', // Mobilde solda sabit kalsın
+            width: 250,
             render: (record) => (
                 <Space>
                     <Avatar icon={<UserOutlined />} src={record.avatar} />
-                    <div>
-                        <div>{record.name}</div>
-                        <div className="text-gray-500 text-sm">{record.email}</div>
+                    <div className="flex flex-col">
+                        <span className="font-medium text-gray-800">{record.name}</span>
+                        <span className="text-xs text-gray-500">{record.email}</span>
                     </div>
                 </Space>
             )
@@ -139,84 +196,73 @@ const UserManagement = () => {
             title: 'Rol',
             dataIndex: 'role',
             key: 'role',
+            width: 120,
             render: (role) => {
-                const colors = {
-                    admin: 'red',
-                    doctor: 'blue',
-                    patient: 'green'
-                };
-                const labels = {
-                    admin: 'Admin',
-                    doctor: 'Doktor',
-                    patient: 'Hasta'
-                };
-                return <Tag color={colors[role]}>{labels[role]}</Tag>;
+                const colors = { admin: 'red', doctor: 'blue', patient: 'green' };
+                const labels = { admin: 'Admin', doctor: 'Doktor', patient: 'Hasta' };
+                return <Tag color={colors[role] || 'default'}>{labels[role] || role}</Tag>;
             }
         },
         {
             title: 'Durum',
             key: 'status',
+            width: 150,
             render: (record) => {
-                // Sadece doktorlar için durum göster
                 if (record.role === 'doctor') {
                     return record.isDoctorApproved ? (
-                        <Tag color="green" icon={<CheckCircleOutlined />}>Onaylanmış</Tag>
+                        <Badge status="success" text="Onaylı" />
                     ) : (
-                        <Tag color="orange">Onay Bekliyor</Tag>
+                        <Badge status="warning" text="Onay Bekliyor" />
                     );
                 }
-                // Admin ve patient için durum gösterme
-                return '-';
+                return <Badge status="default" text="Standart" />;
             }
         },
         {
             title: 'Kayıt Tarihi',
             dataIndex: 'createdAt',
             key: 'createdAt',
-            render: (date) => new Date(date).toLocaleDateString('tr-TR')
+            width: 150,
+            render: (date) => date ? new Date(date).toLocaleDateString('tr-TR') : '-'
         },
         {
             title: 'İşlemler',
             key: 'actions',
+            fixed: 'right',
+            width: 180,
             render: (record) => (
                 <Space>
+                    {/* Doktor Belgesi Varsa İndir Butonu */}
                     {record.role === 'doctor' && record.doctorDocuments && (
-                        <Tooltip title="Doktor Belgesini Görüntüle">
+                        <Tooltip title="Belgeyi İndir">
                             <Button
-                                type="default"
+                                type="dashed"
                                 size="small"
                                 icon={<DownloadOutlined />}
-                                onClick={() => handleDownloadDocument(record.doctorId || record._id, record.name)
-                                }
-                            >
-                                Belge
-                            </Button>
+                                onClick={() => handleDownloadDocument(record.id, record.name)}
+                            />
                         </Tooltip>
                     )}
-                    {record.role === 'doctor' && record.isApproved === false && (
-                        <Tooltip title="Doktoru Onayla">
-                            <Button
-                                type="primary"
-                                size="small"
-                                icon={<CheckCircleOutlined />}
-                                onClick={() => handleApproveDoctor(record.doctorId)}
-                            >
-                                Onayla
-                            </Button>
-                        </Tooltip>
-                    )}
+
+                    {/* Rol Düzenle Butonu */}
+                    <Tooltip title="Rolü Düzenle">
+                        <Button 
+                            type="default" 
+                            size="small" 
+                            icon={<EditOutlined />} 
+                            onClick={() => openEditModal(record)}
+                        />
+                    </Tooltip>
+
+                    {/* Sil Butonu */}
                     <Popconfirm
                         title="Kullanıcıyı silmek istediğinize emin misiniz?"
-                        onConfirm={() => handleDeleteUser(record._id)}
+                        onConfirm={() => handleDeleteUser(record.id)}
                         okText="Evet"
-                        cancelText="Hayır"
+                        cancelText="İptal"
                     >
-                        <Tooltip title="Kullanıcıyı Sil">
-                            <Button
-                                danger
-                                size="small"
-                                icon={<DeleteOutlined />}
-                            />
+                        <Tooltip title="Sil">
+                            <Button danger size="small" icon={<DeleteOutlined />} />
                         </Tooltip>
                     </Popconfirm>
                 </Space>
@@ -224,149 +270,151 @@ const UserManagement = () => {
         }
     ];
 
-    // Arama filtresi
+    // Client-side Arama Filtrelemesi
     const filteredUsers = users.filter(user =>
         user.name?.toLowerCase().includes(searchText.toLowerCase()) ||
         user.email?.toLowerCase().includes(searchText.toLowerCase())
     );
 
-    // Belge indirme işlemini yapan yardımcı fonksiyon
-
-    // UserManagement.jsx içinde handleDownloadDocument fonksiyonu
-
-    const handleDownloadDocument = async (doctorId, doctorName) => {
-        try {
-            const response = await adminService.downloadDoctorDocument(doctorId);
-
-            // KONTROL: Eğer response hiç gelmediyse işlemi durdur
-            if (!response) {
-                console.error("Hata: Sunucudan yanıt (response) alınamadı.");
-                message.warning("Dosya indirilemedi, sunucu yanıt vermedi.");
-                return;
-            }
-
-            // HATA ÇÖZÜMÜ: response?.data diyerek güvenli erişim sağlıyoruz
-            // Eğer data yoksa response'un kendisini (muhtemelen blob) kullanır.
-            const fileData = response?.data || response;
-
-            const blob = new Blob([fileData], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            const fileName = `doktor-belgesi-${doctorName || 'doktor'}.pdf`;
-            link.setAttribute('download', fileName);
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
-        } catch (error) {
-            console.error("Belge indirme hatası:", error);
-            message.error('Belge indirilirken bir hata oluştu.');
-        }
-    };
-
     return (
-        <div className='max-w-[1400px] mx-auto'>
-            {/* Bekleyen Doktorlar */}
+        <div className='p-4 max-w-[1600px] mx-auto'>
+            
+            {/* 1. Bekleyen Doktorlar Kartı */}
             {pendingDoctors && pendingDoctors.length > 0 && (
                 <Card
-                    className="mb-6"
+                    className="mb-6 shadow-md border-orange-200"
                     title={
-                        <span>
-                            <CheckCircleOutlined className="mr-2 text-orange-500" />
-                            Onay Bekleyen Doktorlar {pendingDoctors.length}
-                        </span>
+                        <div className="flex items-center text-orange-600">
+                            <SafetyCertificateOutlined className="mr-2 text-xl" />
+                            <span className="text-lg font-semibold">Onay Bekleyen Doktorlar ({pendingDoctors.length})</span>
+                        </div>
                     }
                 >
-                    <Space direction="vertical" className="w-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {pendingDoctors.map((doctor) => (
-                            <Card key={doctor._id} size="small">
-                                <div className="flex justify-between items-center">
-                                    <Space>
-                                        <Avatar icon={<UserOutlined />} src={doctor.user?.avatar} />
-                                        <div>
-                                            <div className="font-semibold">
-                                                Dr. {doctor.user?.name}
-                                            </div>
-                                            <div className="text-sm text-gray-500">
-                                                {doctor.speciality}
-                                            </div>
-                                            {doctor.user?.doctorDocuments && (
-                                                <div className="text-xs text-blue-500 mt-1">
-                                                    <FileTextOutlined /> Belge yüklendi
-                                                </div>
-                                            )}
-                                        </div>
-                                    </Space>
-                                    <Space>
+                            <div key={doctor.id} className="border rounded-lg p-4 bg-white hover:shadow-lg transition-shadow flex justify-between items-start">
+                                <div className="flex gap-3">
+                                    <Avatar size={48} icon={<UserOutlined />} src={doctor.user?.avatar} />
+                                    <div>
+                                        <div className="font-bold text-gray-800">{doctor.user?.name}</div>
+                                        <div className="text-blue-600 text-sm font-medium">{doctor.speciality}</div>
                                         {doctor.user?.doctorDocuments && (
-                                            <Tooltip title="Belgeyi Görüntüle">
-                                                <Button
-                                                    type="default"
-                                                    size="small"
-                                                    icon={<EyeOutlined />}
-                                                    onClick={() => handleDownloadDocument(doctor.user._id, doctor.user?.name)}
-                                                >
-                                                    Belge
-                                                </Button>
-                                            </Tooltip>
+                                            <div className="text-xs text-green-600 mt-1 flex items-center">
+                                                <FileTextOutlined className="mr-1" /> Belge Mevcut
+                                            </div>
                                         )}
-                                        <Button
-                                            type="primary"
-                                            icon={<CheckCircleOutlined />}
-                                            onClick={() => handleApproveDoctor(doctor.user._id)}
-                                        >
-                                            Onayla
-                                        </Button>
-                                    </Space>
+                                    </div>
                                 </div>
-                            </Card>
+                                <div className="flex flex-col gap-2">
+                                    {doctor.user?.doctorDocuments && (
+                                        <Button
+                                            size="small"
+                                            icon={<EyeOutlined />}
+                                            onClick={() => handleDownloadDocument(doctor.user.id, doctor.user?.name)}
+                                        >
+                                            Belge
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type="primary"
+                                        size="small"
+                                        icon={<CheckCircleOutlined />}
+                                        onClick={() => handleApproveDoctor(doctor.user.id)}
+                                    >
+                                        Onayla
+                                    </Button>
+                                </div>
+                            </div>
                         ))}
-                    </Space>
+                    </div>
                 </Card>
             )}
 
-            {/* Kullanıcı Listesi */}
+            {/* 2. Kullanıcı Yönetimi */}
             <Card
-                title="Tüm Kullanıcılar"
-                extra={
-                    <Space wrap className="gap-2">
+                className="shadow-md"
+                title={<span className="text-lg font-semibold">Kullanıcı Listesi</span>}
+            >
+                {/* Filtreleme Alanı */}
+                <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+                    <div className="w-full md:w-1/3">
                         <Search
-                            placeholder="Kullanıcı ara..."
+                            placeholder="İsim veya Email ile ara..."
                             onSearch={setSearchText}
                             onChange={(e) => setSearchText(e.target.value)}
-                            style={{ minWidth: 200, maxWidth: 250 }}
                             allowClear
+                            enterButton
                         />
+                    </div>
+                    <div className="w-full md:w-1/4">
                         <Select
-                            placeholder="Rol filtrele"
-                            style={{ minWidth: 120, width: 150 }}
+                            placeholder="Rol Filtrele"
+                            className="w-full"
                             value={selectedRole || undefined}
                             onChange={handleRoleFilter}
                             allowClear
                         >
                             <Option value="">Tümü</Option>
-                            <Option value="admin">Admin</Option>
-                            <Option value="doctor">Doktor</Option>
-                            <Option value="patient">Hasta</Option>
+                            <Option value="admin">Yöneticiler</Option>
+                            <Option value="doctor">Doktorlar</Option>
+                            <Option value="patient">Hastalar</Option>
                         </Select>
-                    </Space>
-                }
-            >
+                    </div>
+                </div>
+
+                {/* Tablo */}
                 <Table
                     columns={userColumns}
                     dataSource={filteredUsers}
-                    rowKey="_id"
+                    rowKey="id" // C# id (int)
                     loading={loading}
-                    scroll={{ x: 1000 }}
+                    scroll={{ x: 1000 }} // Responsive Scroll
                     pagination={{
                         pageSize: 10,
-                        showTotal: (total) => `Toplam ${total} kullanıcı`,
-                        responsive: true
+                        showTotal: (total) => `Toplam ${total} kayıt`,
+                        showSizeChanger: true
                     }}
                 />
             </Card>
+
+            {/* Rol Düzenleme Modalı */}
+            <Modal
+                title="Kullanıcı Rolünü Düzenle"
+                open={isEditModalVisible}
+                onCancel={() => setIsEditModalVisible(false)}
+                footer={null}
+            >
+                {editingUser && (
+                    <Form
+                        form={roleForm}
+                        layout="vertical"
+                        onFinish={handleUpdateRole}
+                        initialValues={{ role: editingUser.role }}
+                    >
+                        <div className="mb-4 p-3 bg-gray-50 rounded">
+                            <p><strong>Kullanıcı:</strong> {editingUser.name}</p>
+                            <p><strong>Email:</strong> {editingUser.email}</p>
+                        </div>
+
+                        <Form.Item
+                            name="role"
+                            label="Yeni Rol"
+                            rules={[{ required: true, message: 'Lütfen bir rol seçin' }]}
+                        >
+                            <Select>
+                                <Option value="patient">Hasta</Option>
+                                <Option value="doctor">Doktor</Option>
+                                <Option value="admin">Admin</Option>
+                            </Select>
+                        </Form.Item>
+
+                        <div className="flex justify-end gap-2">
+                            <Button onClick={() => setIsEditModalVisible(false)}>İptal</Button>
+                            <Button type="primary" htmlType="submit">Güncelle</Button>
+                        </div>
+                    </Form>
+                )}
+            </Modal>
         </div>
     );
 };

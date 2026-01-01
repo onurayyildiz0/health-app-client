@@ -1,14 +1,29 @@
-import { useEffect } from 'react';
-
-import { Card, Row, Col, Typography, Button, Statistic, Empty, Avatar, message } from 'antd';
+import { useEffect, useState } from 'react';
+import { 
+    Card, 
+    Row, 
+    Col, 
+    Typography, 
+    Button, 
+    Statistic, 
+    Empty, 
+    Avatar, 
+    message, 
+    Modal, 
+    DatePicker, 
+    Input, 
+    Form,
+    Tag
+} from 'antd';
 import {
     CalendarOutlined,
     ClockCircleOutlined,
     CheckCircleOutlined,
     CloseCircleOutlined,
     TeamOutlined,
-    MedicineBoxOutlined,
-    UserOutlined
+    UserOutlined,
+    RestOutlined,
+    RightOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -22,6 +37,7 @@ import {
 } from '../store/slices/appointmentSlice';
 import axiosInstance from '../api/axios';
 import * as appointmentService from '../api/appointmentService';
+import * as doctorService from '../api/doctorService';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -33,14 +49,17 @@ const DoctorDashboard = () => {
     const appointments = useSelector(selectAllAppointments);
     const loading = useSelector(selectAppointmentLoading);
 
-    // Randevu durumunu güncelle
+    // Modal State'leri
+    const [isTimeOffModalVisible, setIsTimeOffModalVisible] = useState(false);
+    const [timeOffLoading, setTimeOffLoading] = useState(false);
+    const [timeOffForm] = Form.useForm();
+
+    // Randevu Durumu Güncelleme
     const handleStatusUpdate = async (appointmentId, status) => {
         try {
             await appointmentService.updateAppointmentStatus(appointmentId, status);
             const statusText = status === 'completed' ? 'tamamlandı' : 'iptal edildi';
             message.success(`Randevu ${statusText}`);
-
-            // Randevuları yeniden yükle
             const response = await axiosInstance.get('/appointments/doctor');
             dispatch(fetchAppointmentsSuccess(response.data.data || response.data || []));
         } catch {
@@ -48,245 +67,267 @@ const DoctorDashboard = () => {
         }
     };
 
-    // Bugünün tarihi
+    // İzin Ekleme
+    const handleAddTimeOff = async (values) => {
+        try {
+            setTimeOffLoading(true);
+            await doctorService.addUnavailableDate({
+                startDate: values.dateRange[0].format('YYYY-MM-DD'),
+                endDate: values.dateRange[1].format('YYYY-MM-DD'),
+                reason: values.reason
+            });
+            message.success('İzin dönemi başarıyla eklendi');
+            setIsTimeOffModalVisible(false);
+            timeOffForm.resetFields();
+        } catch (error) {
+            message.error(error.response?.data?.message || 'İzin eklenirken hata oluştu');
+        } finally {
+            setTimeOffLoading(false);
+        }
+    };
+
     const today = new Date().toLocaleDateString('tr-TR', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
-    // Randevuları çek
     useEffect(() => {
         const fetchAppointments = async () => {
             try {
                 dispatch(fetchAppointmentsStart());
                 const response = await axiosInstance.get('/appointments/doctor', {
-                    validateStatus: (status) => {
-                        // 404'ü de success olarak kabul et (doktor henüz kayıtlı değil)
-                        return status >= 200 && status < 300 || status === 404;
-                    }
+                    validateStatus: (status) => status < 500
                 });
 
-                // 404 durumunda Doctor kaydı oluştur
                 if (response.status === 404) {
                     try {
-                        // Doctor kaydı oluştur
                         await axiosInstance.post('/doctors', {
-                            user: user._id, // User ID (backend validation için)
-                            speciality: 'Genel Pratisyen', // Varsayılan
-                            clocks: {} // Boş obje (backend validation için)
+                            user: user.id,
+                            speciality: 'Genel Pratisyen',
+                            clocks: {}
                         });
-                        // Tekrar randevuları çek
                         const retryResponse = await axiosInstance.get('/appointments/doctor');
-                        dispatch(fetchAppointmentsSuccess(retryResponse.data.data || retryResponse.data || []));
+                        dispatch(fetchAppointmentsSuccess(retryResponse.data.data || []));
                     } catch {
-                        // Doctor kaydı oluşturulamazsa boş array
                         dispatch(fetchAppointmentsSuccess([]));
                     }
                 } else {
-                    dispatch(fetchAppointmentsSuccess(response.data.data || response.data || []));
+                    dispatch(fetchAppointmentsSuccess(response.data.data || []));
                 }
             } catch (err) {
                 dispatch(fetchAppointmentsFailure(err.message));
             }
         };
-
         fetchAppointments();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line
     }, []);
 
-    // Bugünkü randevular
     const todayAppointments = appointments.filter(apt =>
         dayjs(apt.date).isSame(dayjs(), 'day')
     );
 
     return (
-        <div className="min-h-screen">
-            {/* Hoş Geldin Bölümü */}
-            <div className='mb-4 md:mb-6'>
-                <Title level={2} className='!mb-2 !text-xl md:!text-2xl lg:!text-3xl'>
-                    Hoş Geldiniz Dr. {user?.name}! 👨‍⚕️
-                </Title>
-                <Text type="secondary" className='text-sm md:text-base lg:text-lg'>
-                    {today}
-                </Text>
+        <div className="p-4 md:p-6 max-w-[1600px] mx-auto min-h-screen">
+            
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div>
+                    <Title level={2} className='!mb-1 !text-2xl md:!text-3xl text-gray-800'>
+                        Hoş Geldiniz, Dr. {user?.name} 👋
+                    </Title>
+                    <Text type="secondary" className='text-base'>
+                        {today} • İyi çalışmalar dileriz.
+                    </Text>
+                </div>
+                <div className="flex gap-3 w-full md:w-auto">
+                    <Button 
+                        size="large"
+                        icon={<RestOutlined />} 
+                        onClick={() => setIsTimeOffModalVisible(true)}
+                        className="flex-1 md:flex-none shadow-sm"
+                    >
+                        İzin Ekle
+                    </Button>
+                    <Button 
+                        type="primary" 
+                        size="large"
+                        icon={<ClockCircleOutlined />} 
+                        onClick={() => navigate('/dashboard/doctor/schedule')}
+                        className="flex-1 md:flex-none shadow-md bg-blue-600"
+                    >
+                        Saatleri Düzenle
+                    </Button>
+                </div>
             </div>
+
             {/* İstatistikler */}
-            <Row gutter={[12, 12]} className='mb-4 md:mb-6'>
-                <Col xs={12} sm={12} md={6}>
-                    <Card className='shadow-sm hover:shadow-md transition-all duration-200'>
+            <Row gutter={[20, 20]} className="mb-8">
+                <Col xs={24} sm={12} lg={6}>
+                    <Card bordered={false} className="shadow-sm hover:shadow-md transition-all h-full rounded-xl">
                         <Statistic
                             title="Bugünkü Randevular"
                             value={todayAppointments.length}
-                            prefix={<CalendarOutlined className='text-blue-500' />}
-                            valueStyle={{ color: '#3b82f6' }}
+                            prefix={<CalendarOutlined className="text-blue-500 bg-blue-50 p-2.5 rounded-lg mr-2" />}
+                            valueStyle={{ fontWeight: 700, color: '#1f2937' }}
                         />
                     </Card>
                 </Col>
-                <Col xs={12} sm={12} md={6}>
-                    <Card className='shadow-sm hover:shadow-md transition-all duration-200'>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card bordered={false} className="shadow-sm hover:shadow-md transition-all h-full rounded-xl">
                         <Statistic
                             title="Tamamlanan"
                             value={todayAppointments.filter(a => a.status === 'completed').length}
-                            prefix={<CheckCircleOutlined className='text-green-500' />}
-                            valueStyle={{ color: '#10b981' }}
+                            prefix={<CheckCircleOutlined className="text-green-500 bg-green-50 p-2.5 rounded-lg mr-2" />}
+                            valueStyle={{ fontWeight: 700, color: '#1f2937' }}
                         />
                     </Card>
                 </Col>
-                <Col xs={12} sm={12} md={6}>
-                    <Card className='shadow-sm hover:shadow-md transition-all duration-200'>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card bordered={false} className="shadow-sm hover:shadow-md transition-all h-full rounded-xl">
                         <Statistic
                             title="Bekleyen"
                             value={todayAppointments.filter(a => a.status === 'pending').length}
-                            prefix={<ClockCircleOutlined className='text-orange-500' />}
-                            valueStyle={{ color: '#f97316' }}
+                            prefix={<ClockCircleOutlined className="text-orange-500 bg-orange-50 p-2.5 rounded-lg mr-2" />}
+                            valueStyle={{ fontWeight: 700, color: '#1f2937' }}
                         />
                     </Card>
                 </Col>
-                <Col xs={12} sm={12} md={6}>
-                    <Card className='shadow-sm hover:shadow-md transition-all duration-200'>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card bordered={false} className="shadow-sm hover:shadow-md transition-all h-full rounded-xl">
                         <Statistic
-                            title="Toplam Randevu"
+                            title="Toplam Hasta"
                             value={appointments.length}
-                            prefix={<TeamOutlined className='text-purple-500' />}
-                            valueStyle={{ color: '#a855f7' }}
+                            prefix={<TeamOutlined className="text-purple-500 bg-purple-50 p-2.5 rounded-lg mr-2" />}
+                            valueStyle={{ fontWeight: 700, color: '#1f2937' }}
                         />
                     </Card>
                 </Col>
             </Row>
 
-            {/* Bugünkü Randevular */}
+            {/* Bugünkü Randevular Listesi */}
             <Card
+                bordered={false}
+                className="shadow-md rounded-xl"
                 title={
-                    <div className='flex items-center gap-2'>
-                        <CalendarOutlined className='text-blue-500' />
-                        <span className='text-sm md:text-base'>Bugünkü Randevularım</span>
+                    <div className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                        <CalendarOutlined className="text-blue-600" />
+                        <span>Bugünkü Randevularım</span>
+                        <Tag color="blue" className="ml-2 rounded-full px-3 border-0 bg-blue-50 text-blue-600">
+                            {todayAppointments.length}
+                        </Tag>
                     </div>
                 }
-                className='shadow-md mb-4 md:mb-6'
                 extra={
-                    <Button
-                        type="primary"
-                        size="small"
-                        className='md:!h-8'
-                        onClick={() => navigate('/dashboard/doctor/appointments')}
-                    >
-                        <span className='hidden sm:inline'>Tüm Randevular</span>
-                        <span className='sm:hidden'>Tümü</span>
+                    <Button type="text" className="text-blue-600 hover:text-blue-700 font-medium" onClick={() => navigate('/dashboard/doctor/appointments')}>
+                        Tümünü Gör <RightOutlined className="text-xs" />
                     </Button>
                 }
             >
                 {loading ? (
-                    <div className='text-center py-8'>Yükleniyor...</div>
+                    <div className="text-center py-12 text-gray-400">Yükleniyor...</div>
                 ) : todayAppointments.length > 0 ? (
-                    <div className='space-y-3'>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                         {todayAppointments.map((appointment) => (
                             <Card
-                                key={appointment._id}
-                                className='border-l-4 border-l-blue-500 hover:shadow-md transition-all duration-200'
-                                size="small"
+                                key={appointment.id}
+                                bordered={false}
+                                className="bg-gray-50/50 hover:bg-white border border-transparent hover:border-gray-200 hover:shadow-lg transition-all duration-300 rounded-xl"
+                                bodyStyle={{ padding: '20px' }}
                             >
-                                {/* Desktop View */}
-                                <div className='hidden sm:flex sm:items-center sm:justify-between gap-3'>
-                                    <div className='flex items-center gap-4 flex-1 min-w-0'>
-                                        <Avatar
-                                            size={48}
-                                            icon={<UserOutlined />}
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex gap-4 items-center">
+                                        <Avatar 
+                                            size={54} 
+                                            icon={<UserOutlined />} 
                                             src={appointment.patient?.avatar}
-                                            className='flex-shrink-0'
+                                            className="border-2 border-white shadow-sm"
                                         />
-                                        <div className='flex flex-col items-center justify-center bg-blue-50 px-3 py-2 rounded-lg flex-shrink-0'>
-                                            <Text type="secondary" className='text-xs'>Saat</Text>
-                                            <Text strong className='text-lg'>{appointment.start}</Text>
-                                        </div>
-                                        <div className='min-w-0 flex-1'>
-                                            <Title level={5} className='!mb-0 truncate'>
-                                                {appointment.patient?.name || 'Bilinmiyor'}
-                                            </Title>
-                                            <Text type="secondary" className='text-sm line-clamp-1'>
-                                                {appointment.notes || 'Not yok'}
-                                            </Text>
-                                        </div>
-                                    </div>
-                                    <div className='flex gap-2 flex-shrink-0'>
-                                        <Button
-                                            type="primary"
-                                            size="small"
-                                            icon={<CheckCircleOutlined />}
-                                            onClick={() => handleStatusUpdate(appointment._id, 'completed')}
-                                        >
-                                            Tamamlandı
-                                        </Button>
-                                        <Button
-                                            danger
-                                            size="small"
-                                            onClick={() => handleStatusUpdate(appointment._id, 'cancelled')}
-                                        >
-                                            Gelmedi
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {/* Mobile View */}
-                                <div className='sm:hidden space-y-3'>
-                                    {/* Hasta Bilgisi */}
-                                    <div className='flex items-center gap-3 pb-3 border-b'>
-                                        <Avatar
-                                            size={48}
-                                            icon={<UserOutlined />}
-                                            src={appointment.patient?.avatar}
-                                        />
-                                        <div className='flex-1 min-w-0'>
-                                            <div className='font-semibold text-sm truncate'>
-                                                {appointment.patient?.name || 'Bilinmiyor'}
+                                        <div>
+                                            <div className="font-bold text-gray-800 text-base mb-0.5">{appointment.patient?.name}</div>
+                                            <div className="text-sm text-gray-500 flex items-center gap-1">
+                                                <ClockCircleOutlined className="text-blue-500" />
+                                                {appointment.start.slice(0, 5)} - {appointment.end.slice(0, 5)}
                                             </div>
-                                            {appointment.notes && (
-                                                <Text type="secondary" className='text-xs line-clamp-1'>
-                                                    {appointment.notes}
-                                                </Text>
-                                            )}
                                         </div>
                                     </div>
-
-                                    {/* Saat Bilgisi */}
-                                    <div className='flex items-center justify-center bg-blue-50 px-3 py-2 rounded-lg'>
-                                        <ClockCircleOutlined className='text-blue-500 mr-2' />
-                                        <Text strong className='text-base'>{appointment.start}</Text>
-                                    </div>
-
-                                    {/* İşlem Butonları */}
-                                    <div className='flex gap-2 pt-2 border-t'>
-                                        <Button
-                                            type="primary"
-                                            size="small"
-                                            icon={<CheckCircleOutlined />}
-                                            onClick={() => handleStatusUpdate(appointment._id, 'completed')}
-                                            block
-                                        >
-                                            Tamamlandı
-                                        </Button>
-                                        <Button
-                                            danger
-                                            size="small"
-                                            icon={<CloseCircleOutlined />}
-                                            onClick={() => handleStatusUpdate(appointment._id, 'cancelled')}
-                                            block
-                                        >
-                                            Gelmedi
-                                        </Button>
-                                    </div>
+                                    <Tag 
+                                        color={
+                                            appointment.status === 'completed' ? 'success' :
+                                            appointment.status === 'cancelled' ? 'error' :
+                                            'processing'
+                                        } 
+                                        className="m-0 rounded-full px-3 border-0"
+                                    >
+                                        {appointment.status === 'booked' ? 'Aktif' : appointment.status}
+                                    </Tag>
                                 </div>
+                                
+                                {appointment.notes && (
+                                    <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-100 mb-4">
+                                        <span className="font-medium text-gray-900">Not:</span> {appointment.notes}
+                                    </div>
+                                )}
+
+                                {appointment.status === 'booked' && (
+                                    <div className="flex gap-3 mt-auto pt-2 border-t border-gray-100">
+                                        <Button 
+                                            type="primary" 
+                                            className="flex-1 bg-green-500 hover:bg-green-600 border-0 shadow-sm"
+                                            icon={<CheckCircleOutlined />}
+                                            onClick={() => handleStatusUpdate(appointment.id, 'completed')}
+                                        >
+                                            Tamamla
+                                        </Button>
+                                        <Button 
+                                            danger 
+                                            className="flex-1"
+                                            icon={<CloseCircleOutlined />}
+                                            onClick={() => handleStatusUpdate(appointment.id, 'cancelled')}
+                                        >
+                                            İptal
+                                        </Button>
+                                    </div>
+                                )}
                             </Card>
                         ))}
                     </div>
                 ) : (
                     <Empty
-                        description="Bugün randevunuz bulunmamaktadır"
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    />
+                        description="Bugün için planlanmış randevunuz bulunmamaktadır."
+                        className="py-12"
+                    >
+                        <Button type="primary" onClick={() => navigate('/dashboard/doctor/schedule')}>
+                            Çalışma Saatlerini Kontrol Et
+                        </Button>
+                    </Empty>
                 )}
             </Card>
+
+            {/* İzin Ekleme Modalı */}
+            <Modal
+                title="İzin Dönemi Ekle"
+                open={isTimeOffModalVisible}
+                onCancel={() => setIsTimeOffModalVisible(false)}
+                footer={null}
+                centered
+            >
+                <Form form={timeOffForm} layout="vertical" onFinish={handleAddTimeOff}>
+                    <Form.Item 
+                        name="dateRange" 
+                        label="Tarih Aralığı" 
+                        rules={[{ required: true, message: 'Lütfen tarih seçin' }]}
+                    >
+                        <DatePicker.RangePicker className="w-full" size="large" disabledDate={(current) => current && current < dayjs().endOf('day')} />
+                    </Form.Item>
+                    <Form.Item name="reason" label="Sebep">
+                        <Input.TextArea rows={3} placeholder="Yıllık izin, konferans, hastalık vb." />
+                    </Form.Item>
+                    <div className="flex justify-end gap-2 mt-6">
+                        <Button onClick={() => setIsTimeOffModalVisible(false)} size="large">İptal</Button>
+                        <Button type="primary" htmlType="submit" loading={timeOffLoading} size="large">Kaydet</Button>
+                    </div>
+                </Form>
+            </Modal>
         </div>
     );
 };

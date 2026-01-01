@@ -100,6 +100,14 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     label: 'Randevularım',
                     onClick: () => navigate(`${basePath}/appointments`)
                 },
+                // --- YENİ EKLENEN KISIM ---
+                {
+                    key: `${basePath}/info`,
+                    icon: <MedicineBoxOutlined />, // İkonu import etmeyi unutmayın
+                    label: 'Doktor Bilgileri',
+                    onClick: () => navigate(`${basePath}/info`)
+                },
+                // --------------------------
                 {
                     key: `${basePath}/schedule`,
                     icon: <ClockCircleOutlined />,
@@ -110,7 +118,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     key: `${basePath}/timeoff`,
                     icon: <CalendarOutlined />,
                     label: 'İzin Dönemlerim',
-
                     onClick: () => navigate(`${basePath}/timeoff`)
                 }
             ];
@@ -124,6 +131,12 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     icon: <TeamOutlined />,
                     label: 'Kullanıcı Yönetimi',
                     onClick: () => navigate(`${basePath}/users`)
+                },
+                {
+                    key: `${basePath}/appointments`,
+                    icon: <TeamOutlined />,
+                    label: 'Randevu Yönetimi',
+                    onClick: () => navigate(`${basePath}/appointments`)
                 }
             ];
         }

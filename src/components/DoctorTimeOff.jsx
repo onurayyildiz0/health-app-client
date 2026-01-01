@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, Form, DatePicker, Input, Button, Table, message, Spin, Empty } from 'antd';
 import { CalendarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { addUnavailableDate, getMyDoctorProfile } from '../api/doctorService'; // Dosya yolunu kendine göre ayarla
+import { addUnavailableDate, getMyDoctorProfile } from '../api/doctorService'; 
 
 const { RangePicker } = DatePicker;
 
@@ -12,16 +12,30 @@ export default function DoctorTimeOff() {
     const [unavailableDates, setUnavailableDates] = useState([]);
     const [form] = Form.useForm();
 
-    // Sayfa açılınca mevcut izinleri getir
     const fetchData = async () => {
         try {
             setLoading(true);
             const res = await getMyDoctorProfile();
-            // Backend'den unavailableDates array'i gelmeli
-            if (res.unavailableDates) {
-                setUnavailableDates(res.unavailableDates);
+            
+            if (res && res.data.unavailableDates) {
+                let parsedData = [];
+                
+                // Gelen veri string ise parse et, array ise direkt al
+                const rawData = typeof res.data.unavailableDates === 'string' 
+                    ? JSON.parse(res.data.unavailableDates) 
+                    : res.data.unavailableDates;
+
+                // FIX: Antd Table "rowKey" uyarısını çözmek için veriye sabit bir ID (uid) ekliyoruz.
+                // Veriyi aldığımız anda index'i kullanarak statik bir ID oluşturuyoruz.
+                parsedData = rawData.map((item, index) => ({
+                    ...item,
+                    uid: `${index}-${item.StartDate}` // Benzersiz bir key oluşturur
+                }));
+                console.log(parsedData)
+                setUnavailableDates(parsedData);
             }
-        } catch {
+        } catch (error) {
+            console.error(error);
             message.error("Veriler yüklenemedi.");
         } finally {
             setLoading(false);
@@ -32,21 +46,19 @@ export default function DoctorTimeOff() {
         fetchData();
     }, []);
 
-    // Form gönderilince çalışacak fonksiyon
     const onFinish = async (values) => {
         try {
             setSubmitting(true);
 
-            // Tarih farkını kontrol et: en fazla 1 ay (30 gün)
             const startDate = values.dates[0];
             const endDate = values.dates[1];
             const diffDays = endDate.diff(startDate, 'day');
+            
             if (diffDays > 30) {
                 message.error("İzin süresi en fazla 1 ay (30 gün) olabilir.");
                 return;
             }
 
-            // Antd RangePicker dayjs objesi döner, string'e çevirmeliyiz
             const payload = {
                 startDate: startDate.format('YYYY-MM-DD'),
                 endDate: endDate.format('YYYY-MM-DD'),
@@ -57,7 +69,7 @@ export default function DoctorTimeOff() {
 
             message.success("İzin tarihi başarıyla eklendi.");
             form.resetFields();
-            fetchData(); // Listeyi güncelle
+            fetchData(); 
         } catch (error) {
             message.error(error.response?.data?.message || "Bir hata oluştu.");
         } finally {
@@ -65,24 +77,24 @@ export default function DoctorTimeOff() {
         }
     };
 
-    // Tablo kolonları
     const columns = [
         {
             title: 'Başlangıç',
-            dataIndex: 'startDate',
-            key: 'startDate',
-            render: (text) => dayjs(text).format('DD.MM.YYYY'),
+            dataIndex: 'StartDate',
+            key: 'StartDate',
+            render: (text) => text ? dayjs(text).format('DD.MM.YYYY') : '-',
         },
         {
             title: 'Bitiş',
-            dataIndex: 'endDate',
-            key: 'endDate',
-            render: (text) => dayjs(text).format('DD.MM.YYYY'),
+            dataIndex: 'EndDate',
+            key: 'EndDate',
+            render: (text) => text ? dayjs(text).format('DD.MM.YYYY') : '-',
         },
         {
             title: 'Sebep',
-            dataIndex: 'reason',
-            key: 'reason',
+            dataIndex: 'Reason',
+            key: 'Reason',
+            render: (text) => text || 'Belirtilmemiş',
         }
     ];
 
@@ -96,7 +108,6 @@ export default function DoctorTimeOff() {
             } 
             className="max-w-3xl mx-auto mt-8 shadow-md"
         >
-
             {/* --- EKLEME FORMU --- */}
             <Card type="inner" title="Yeni İzin Ekle" className="mb-6 bg-gray-50">
                 <Form layout="vertical" form={form} onFinish={onFinish}>
@@ -118,7 +129,6 @@ export default function DoctorTimeOff() {
                                             return current && current > maxEnd;
                                         }
                                     }
-                                    // Başlangıç için geçmiş tarihleri engelle
                                     return current && current < dayjs().startOf('day');
                                 }}
                             />
@@ -146,7 +156,8 @@ export default function DoctorTimeOff() {
                 <Table
                     dataSource={unavailableDates}
                     columns={columns}
-                    rowKey="_id" // MongoDB _id'sini key olarak kullan
+                    // FIX: Artık veri içinde 'uid' olduğu için fonksiyon kullanmaya gerek yok
+                    rowKey="uid"
                     locale={{ emptyText: <Empty description="Henüz eklenmiş bir izin yok" /> }}
                     pagination={{ pageSize: 5 }}
                 />

@@ -2,21 +2,18 @@ import axiosInstance from './axios';
 
 /**
  * REVIEW SERVICE
- * 
- * Değerlendirme/Yorum işlemleri için API fonksiyonları
+ * * Değerlendirme/Yorum işlemleri için API fonksiyonları
  * Backend'deki /api/reviews endpoint'lerine karşılık gelir
  */
 
 /**
  * YENİ DEĞERLENDİRME EKLE (Patient)
- * 
- * Backend Endpoint: POST /api/reviews
- * 
- * Data:
+ * * Backend Endpoint: POST /api/reviews
+ * * Data:
  * {
- *   doctorId: "mongoID",  // Doktor ID
- *   rating: 5,            // 1-5 arası puan
- *   comment: "Çok iyi"    // Yorum (opsiyonel)
+ * doctorId: 1,          // C# int bekler
+ * rating: 5,            // 1-5 arası puan
+ * comment: "Çok iyi"    // Yorum (opsiyonel)
  * }
  */
 export const addReview = async (reviewData) => {
@@ -26,21 +23,7 @@ export const addReview = async (reviewData) => {
 
 /**
  * DOKTORUN DEĞERLENDİRMELERİNİ GETİR
- * 
- * Backend Endpoint: GET /api/reviews/:doctorId
- * 
- * Dönen veri:
- * {
- *   reviews: [
- *     {
- *       _id: "...",
- *       patient: { name, avatar },
- *       rating: 5,
- *       comment: "...",
- *       createdAt: "2025-10-15"
- *     }
- *   ]
- * }
+ * * Backend Endpoint: GET /api/reviews/:doctorId
  */
 export const getReviewsByDoctor = async (doctorId) => {
     const response = await axiosInstance.get(`/reviews/${doctorId}`);
@@ -49,10 +32,8 @@ export const getReviewsByDoctor = async (doctorId) => {
 
 /**
  * DEĞERLENDİRME SİL (Patient veya Admin)
- * 
- * Backend Endpoint: DELETE /api/reviews/:id
- * 
- * Not: Sadece kendi yorumunu silebilir veya Admin silebilir
+ * * Backend Endpoint: DELETE /api/reviews/:id
+ * * Not: Sadece kendi yorumunu silebilir veya Admin silebilir
  */
 export const deleteReview = async (reviewId) => {
     const response = await axiosInstance.delete(`/reviews/${reviewId}`);
@@ -61,13 +42,11 @@ export const deleteReview = async (reviewId) => {
 
 /**
  * DEĞERLENDİRME GÜNCELLE (Patient)
- * 
- * Backend Endpoint: PUT /api/reviews/:id
- * 
- * Data:
+ * * Backend Endpoint: PUT /api/reviews/:id
+ * * Data:
  * {
- *   rating: 4,
- *   comment: "Güncellenen yorum"
+ * rating: 4,
+ * comment: "Güncellenen yorum"
  * }
  */
 export const updateReview = async (reviewId, updateData) => {

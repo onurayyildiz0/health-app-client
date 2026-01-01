@@ -130,7 +130,7 @@ const Favorites = () => {
             ) : (
                 <Row gutter={[16, 16]}>
                     {favoriteDoctors.map((doctor) => (
-                        <Col xs={24} sm={12} md={8} lg={6} key={doctor._id}>
+                        <Col xs={24} sm={12} md={8} lg={6} key={doctor.id}>
                             <Card
                                 hoverable
                                 className="h-full transition-all duration-200 hover:shadow-lg relative"
@@ -138,7 +138,7 @@ const Favorites = () => {
                                 {/* Favoriden Çıkar Butonu */}
                                 <Popconfirm
                                     title="Favorilerden çıkarmak istediğinize emin misiniz?"
-                                    onConfirm={() => handleRemoveFavorite(doctor._id)}
+                                    onConfirm={() => handleRemoveFavorite(doctor.id)}
                                     okText="Evet"
                                     cancelText="Hayır"
                                 >
@@ -146,14 +146,14 @@ const Favorites = () => {
                                         danger
                                         size="small"
                                         icon={<DeleteOutlined />}
-                                        loading={removing === doctor._id}
+                                        loading={removing === doctor.id}
                                         className="absolute top-2 right-2 z-10"
                                     />
                                 </Popconfirm>
 
                                 <div
                                     className="text-center cursor-pointer"
-                                    onClick={() => handleDoctorClick(doctor._id)}
+                                    onClick={() => handleDoctorClick(doctor.id)}
                                 >
                                     <Avatar
                                         size={80}
@@ -195,7 +195,7 @@ const Favorites = () => {
                                     block
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        handleBookAppointment(doctor._id);
+                                        handleBookAppointment(doctor.id);
                                     }}
                                     className="mt-2"
                                 >

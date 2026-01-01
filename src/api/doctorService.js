@@ -2,54 +2,46 @@ import axiosInstance from './axios';
 
 /**
  * DOCTOR SERVICE
- * 
- * Doktor işlemleri için API fonksiyonları
+ * * Doktor işlemleri için API fonksiyonları
  * Backend'deki /api/doctors endpoint'lerine karşılık gelir
  */
 
 /**
  * TÜM DOKTORLARI GETİR
- * 
- * Backend Endpoint: GET /api/doctors
- * 
- * Query params:
- * - speciality: Branşa göre filtreleme (opsiyonel)
- * - search: İsim veya branş ile arama (opsiyonel)
- * - page: Sayfa numarası (opsiyonel)
- * - limit: Sayfa başına kayıt (opsiyonel)
+ * * Backend Endpoint: GET /api/doctors
+ * * Query params:
+ * - speciality: Branşa göre filtreleme
+ * - search: İsim veya branş ile arama
+ * - page: Sayfa numarası
+ * - limit: Sayfa başına kayıt
+ * - minRating: Minimum puan filtresi
  */
 export const getAllDoctors = async (params = {}) => {
     const response = await axiosInstance.get('/doctors', { params });
     return response.data;
 };
 
-
+/**
+ * İZİNLİ GÜN EKLE
+ * * Backend Endpoint: POST /api/doctors/me/unavailable
+ */
 export const addUnavailableDate = async (data) => {
-    // data formatı: { startDate: "...", endDate: "...", reason: "..." }
     const response = await axiosInstance.post('/doctors/me/unavailable', data);
     return response.data;
 };
 
+/**
+ * KENDİ DOKTOR PROFİLİNİ GETİR
+ * * Backend Endpoint: GET /api/doctors/me
+ */
 export const getMyDoctorProfile = async () => {
     const response = await axiosInstance.get('/doctors/me');
     return response.data;
 };
+
 /**
  * DOKTOR DETAYINI GETİR
- * 
- * Backend Endpoint: GET /api/doctors/:id
- * 
- * Dönen veri:
- * {
- *   doctor: {
- *     _id: "...",
- *     user: { name, email },
- *     speciality: "Kardiyoloji",
- *     rating: 4.5,
- *     reviewCount: 123,
- *     clocks: { monday: {...} }
- *   }
- * }
+ * * Backend Endpoint: GET /api/doctors/:id
  */
 export const getDoctorById = async (doctorId) => {
     const response = await axiosInstance.get(`/doctors/${doctorId}`);
@@ -58,20 +50,16 @@ export const getDoctorById = async (doctorId) => {
 
 /**
  * BRANŞA GÖRE DOKTORLARI GETİR
- * 
- * Backend Endpoint: GET /api/doctors/speciality/:speciality
- * 
- * Örnek: getDoctorsBySpeciality("Kardiyoloji")
+ * (Helper function using getAllDoctors)
  */
 export const getDoctorsBySpeciality = async (speciality) => {
-    const response = await axiosInstance.get(`/doctors/speciality/${speciality}`);
-    return response.data;
+    // C# tarafındaki genel filtreleme endpointini kullanıyoruz
+    return getAllDoctors({ speciality });
 };
 
 /**
  * DOKTORUN DEĞERLENDİRMELERİNİ GETİR
- * 
- * Backend Endpoint: GET /api/doctors/:id/reviews
+ * * Backend Endpoint: GET /api/doctors/:id/reviews
  */
 export const getDoctorReviews = async (doctorId) => {
     const response = await axiosInstance.get(`/doctors/${doctorId}/reviews`);
@@ -80,27 +68,16 @@ export const getDoctorReviews = async (doctorId) => {
 
 /**
  * EN YÜKSEK PUANLI DOKTORLARI GETİR
- * 
- * Backend Endpoint: GET /api/doctors/max-rating/:rating
- * 
- * Örnek: getDoctorsByMaxRating(4.5) → 4.5 ve üzeri puanlı doktorlar
+ * (Helper function using getAllDoctors)
  */
-export const getDoctorsByMaxRating = async (rating = 4.0) => {
-    const response = await axiosInstance.get(`/doctors/max-rating/${rating}`);
-    return response.data;
+export const getDoctorsByMaxRating = async (minRating = 4.0) => {
+    // C# tarafındaki genel filtreleme endpointini kullanıyoruz
+    return getAllDoctors({ minRating });
 };
 
 /**
  * YENİ DOKTOR OLUŞTUR (Admin)
- * 
- * Backend Endpoint: POST /api/doctors
- * 
- * Data:
- * {
- *   user: "userId",
- *   speciality: "Kardiyoloji",
- *   clocks: { monday: { start: "09:00", end: "17:00" } }
- * }
+ * * Backend Endpoint: POST /api/doctors
  */
 export const createDoctor = async (doctorData) => {
     const response = await axiosInstance.post('/doctors', doctorData);
@@ -109,36 +86,31 @@ export const createDoctor = async (doctorData) => {
 
 /**
  * DOKTOR BİLGİLERİNİ GÜNCELLE
- * 
- * Backend Endpoint: PUT /api/doctors/:id
+ * * Backend Endpoint: PUT /api/doctors/:id
+ * Not: C# tarafında bu endpoint eksik olabilir, Admin veya DoctorController'da tanımlı olmalı.
+ * Eğer yoksa create mantığına benzer bir update endpoint'i backend'de olmalı.
  */
 export const updateDoctor = async (doctorId, updateData) => {
+    // Bu endpoint C# DoctorController'da yoksa eklenmeli veya 
+    // updateSchedule gibi spesifik endpointler kullanılmalı.
+    // Şimdilik standart PUT olarak bırakıyorum.
     const response = await axiosInstance.put(`/doctors/${doctorId}`, updateData);
     return response.data;
 };
 
 /**
  * DOKTOR ÇALIŞMA SAATLERİNİ AYARLA (Doctor)
- * 
- * Backend Endpoint: POST /api/doctors/schedule
- * 
- * Data:
- * {
- *   clocks: {
- *     monday: { start: "09:00", end: "17:00" },
- *     tuesday: { start: "09:00", end: "17:00" }
- *   }
- * }
+ * * Backend Endpoint: PUT /api/doctors/me/schedule
+ * (C# tarafında endpoint PUT olarak tanımlandı)
  */
 export const setDoctorSchedule = async (scheduleData) => {
-    const response = await axiosInstance.post('/doctors/schedule', scheduleData);
+    const response = await axiosInstance.put('/doctors/me/schedule', scheduleData);
     return response.data;
 };
 
 /**
  * DOKTORU SİL (Admin)
- * 
- * Backend Endpoint: DELETE /api/doctors/:id
+ * * Backend Endpoint: DELETE /api/doctors/:id
  */
 export const deleteDoctor = async (doctorId) => {
     const response = await axiosInstance.delete(`/doctors/${doctorId}`);
@@ -147,19 +119,19 @@ export const deleteDoctor = async (doctorId) => {
 
 /**
  * SAĞLIK GEÇMİŞİ EKLE (Doctor)
- * 
- * Backend Endpoint: POST /api/doctors/health-history
- * 
- * Data:
- * {
- *   patientId: "userId",
- *   diagnosis: "...",
- *   treatment: "...",
- *   notes: "..."
- * }
+ * * Backend Endpoint: POST /api/doctors/health-history
  */
 export const addHealthHistory = async (healthData) => {
     const response = await axiosInstance.post('/doctors/health-history', healthData);
+    return response.data;
+};
+
+/**
+ * DOKTOR GENEL BİLGİLERİNİ GÜNCELLE
+ * * Backend Endpoint: PUT /api/doctors/me/info
+ */
+export const updateDoctorInfo = async (infoData) => {
+    const response = await axiosInstance.put('/doctors/me/info', infoData);
     return response.data;
 };
 
@@ -173,5 +145,8 @@ export default {
     updateDoctor,
     setDoctorSchedule,
     deleteDoctor,
-    addHealthHistory
+    addHealthHistory,
+    getMyDoctorProfile,
+    addUnavailableDate,
+    updateDoctorInfo
 };

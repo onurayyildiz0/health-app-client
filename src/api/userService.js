@@ -2,153 +2,144 @@ import axiosInstance from './axios';
 
 /**
  * USER SERVICE
- * 
- * Kullanıcı profil işlemleri için API fonksiyonları
- * Backend'deki /api/users endpoint'lerine karşılık gelir
+ * * Kullanıcı profil işlemleri için API fonksiyonları
+ * Backend'deki /api/user endpoint'lerine karşılık gelir
  */
 
 /**
  * KULLANICI PROFİLİNİ GETİR
- * 
- * Backend Endpoint: GET /api/users/me
- * 
- * Dönen veri:
- * {
- *   user: {
- *     _id: "...",
- *     name: "...",
- *     email: "...",
- *     role: "patient",
- *     phone: "...",
- *     avatar: "..."
- *   }
- * }
+ * * Backend Endpoint: GET /api/user/profile
+ * (C# tarafında endpoint adı /profile olarak güncellendi)
  */
 export const getMyProfile = async () => {
-    const response = await axiosInstance.get('/users/me');
+    const response = await axiosInstance.get('/user/profile');
     return response.data;
 };
 
 /**
  * PROFİLİ GÜNCELLE
- * 
- * Backend Endpoint: PUT /api/users/me
- * 
- * Data:
- * {
- *   name: "Yeni İsim",
- *   phone: "05551234567",
- *   avatar: "https://..."
- * }
+ * * Backend Endpoint: PUT /api/user/profile
+ * (C# tarafında endpoint adı /profile olarak güncellendi)
  */
 export const updateProfile = async (profileData) => {
-    const response = await axiosInstance.put('/users/me', profileData);
+    const response = await axiosInstance.put('/user/profile', profileData);
+    return response.data;
+};
+
+/**
+ * E-POSTA DEĞİŞİKLİĞİNİ ONAYLA
+ * Backend Endpoint: GET /api/user/confirm-email-change/:token
+ */
+export const confirmEmailChange = async (token) => {
+    const response = await axiosInstance.get(`/user/confirm-email-change/${token}`);
     return response.data;
 };
 
 /**
  * ŞİFRE DEĞİŞTİR
- * 
- * Backend Endpoint: PUT /api/users/change-password
- * 
- * Data:
+ * * Backend Endpoint: PUT /api/user/change-password
+ * * Data:
  * {
- *   currentPassword: "eskiŞifre",
- *   newPassword: "yeniŞifre"
+ * currentPassword: "eskiŞifre",
+ * newPassword: "yeniŞifre"
  * }
  */
 export const changePassword = async (passwordData) => {
-    const response = await axiosInstance.put('/users/change-password', passwordData);
+    const response = await axiosInstance.put('/user/change-password', passwordData);
     return response.data;
 };
 
 /**
  * ŞİFRE SIFIRLAMA İSTEĞİ
- * 
- * Backend Endpoint: POST /api/users/forgot-password
- * 
- * Data:
+ * * Backend Endpoint: POST /api/user/forgot-password
+ * * Data:
  * {
- *   email: "user@example.com"
+ * email: "user@example.com"
  * }
  */
 export const forgotPassword = async (email) => {
-    const response = await axiosInstance.post('/users/forgot-password', { email });
+    const response = await axiosInstance.post('/user/forgot-password', { email });
     return response.data;
 };
 
 /**
  * ŞİFRE SIFIRLAMA (Token ile)
- * 
- * Backend Endpoint: POST /api/users/reset-password/:token
- * 
- * Data:
+ * * Backend Endpoint: POST /api/user/reset-password/:token
+ * * Data:
  * {
- *   password: "yeniŞifre"
+ * password: "yeniŞifre"
  * }
  */
 export const resetPassword = async (token, password) => {
-    const response = await axiosInstance.post(`/users/reset-password/${token}`, { password });
+    const response = await axiosInstance.post(`/user/reset-password/${token}`, { password });
     return response.data;
 };
 
 /**
  * E-POSTA DOĞRULAMA
- * 
- * Backend Endpoint: GET /api/users/verify-email/:token
+ * * Backend Endpoint: GET /api/user/verify/:token
  */
 export const verifyEmail = async (token) => {
-    const response = await axiosInstance.get(`/users/verify-email/${token}`);
+    const response = await axiosInstance.get(`/user/verify/${token}`);
     return response.data;
 };
 
 /**
  * DOĞRULAMA E-POSTASI GÖNDER
- * 
- * Backend Endpoint: POST /api/users/resend-verification
+ * * Backend Endpoint: POST /api/user/resend-verification
  */
 export const resendVerificationEmail = async () => {
-    const response = await axiosInstance.post('/users/resend-verification');
+    const response = await axiosInstance.post('/user/resend-verification');
     return response.data;
 };
 
 /**
  * FAVORİ DOKTOR EKLE
- * 
- * Backend Endpoint: POST /api/users/favorites/add
+ * * Backend Endpoint: POST /api/user/favorites
+ * * Düzeltme: Backend rotası '/add' içermiyor ve body olarak sadece INT bekliyor.
  */
 export const addFavoriteDoctor = async (doctorId) => {
-    const response = await axiosInstance.post('/users/favorites/add', { doctorId });
+    // Backend [FromBody] int beklediği için direkt sayıyı gönderiyoruz.
+    // Content-Type: application/json başlığı axios tarafından otomatik ayarlanır.
+    const response = await axiosInstance.post('/user/favorites', doctorId, {
+        headers: { 'Content-Type': 'application/json' }
+    });
     return response.data;
 };
 
 /**
  * FAVORİ DOKTOR ÇIKAR
- * 
- * Backend Endpoint: DELETE /api/users/favorites/:doctorId
+ * * Backend Endpoint: DELETE /api/user/favorites/:doctorId
  */
 export const removeFavoriteDoctor = async (doctorId) => {
-    const response = await axiosInstance.delete(`/users/favorites/${doctorId}`);
+    const response = await axiosInstance.delete(`/user/favorites/${doctorId}`);
     return response.data;
 };
 
 /**
  * FAVORİ DOKTORLARI GETİR
- * 
- * Backend Endpoint: GET /api/users/favorites
+ * * Backend Endpoint: GET /api/user/favorites
  */
 export const getFavoriteDoctors = async () => {
-    const response = await axiosInstance.get('/users/favorites');
+    const response = await axiosInstance.get('/user/favorites');
+    return response.data;
+};
+
+/**
+ * SAĞLIK GEÇMİŞİNİ GETİR
+ * * Backend Endpoint: GET /api/user/health-history
+ */
+export const getHealthHistory = async () => {
+    const response = await axiosInstance.get('/user/health-history');
     return response.data;
 };
 
 /**
  * KULLANICI HESABINI SİL
- * 
- * Backend Endpoint: DELETE /api/users/me
+ * * Backend Endpoint: DELETE /api/user/me
  */
 export const deleteAccount = async () => {
-    const response = await axiosInstance.delete('/users/me');
+    const response = await axiosInstance.delete('/user/me');
     return response.data;
 };
 
@@ -163,5 +154,6 @@ export default {
     addFavoriteDoctor,
     removeFavoriteDoctor,
     getFavoriteDoctors,
-    deleteAccount
+    deleteAccount,
+    getHealthHistory
 };

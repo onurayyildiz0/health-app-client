@@ -30,6 +30,12 @@ import { selectAuthLoading } from './store/slices/authSlice';
 import LoadingSpinner from './components/LoadingSpinner';
 import DoctorScheduleSettings from './components/DoctorScheduleSettings'
 import DoctorTimeOff from './components/DoctorTimeOff'
+import AppointmentSuccess from './pages/AppointmentSuccess'
+import AppointmentFailed from './pages/AppointmentFailed'
+import AdminAppointments from './pages/admin/AdminAppointments'
+import VerifyEmailChange from './pages/VerifyEmailChange'
+import VerifyEmail from './pages/VerifyEmail'
+import DoctorInformations from './pages/doctor/DoctorInformations'
 
 function App() {
 
@@ -48,10 +54,13 @@ function App() {
           <Route path='/reset-password/:token' element={<ResetPassword />} />
           <Route path='/about' element={<About />} />
           <Route path='/doctors' element={<Doctors />} />
-          <Route path='/payment' element={<PaymentPage />} />
+          {/* <Route path='/payment' element={<PaymentPage />} />
           <Route path='/payment-success' element={<PaymentSuccess />} />
-          <Route path='/payment-failed' element={<PaymentFailed />} />
-
+          <Route path='/payment-failed' element={<PaymentFailed />} /> */}
+          <Route path='/appointment-success' element={<AppointmentSuccess />} />
+          <Route path='/appointment-failed' element={<AppointmentFailed />} />
+          <Route path="/verify-email/:token" element={<VerifyEmail />} />
+          <Route path="/verify-email-change/:token" element={<VerifyEmailChange />} />
           {/* Dashboard Routes - Nested with Outlet */}
           <Route path="/dashboard">
             {/* Patient Dashboard */}
@@ -83,6 +92,10 @@ function App() {
             >
               <Route index element={<DoctorDashboard />} />
               <Route path="appointments" element={<DoctorAppointments />} />
+
+              {/* Yeni Route */}
+              <Route path="info" element={<DoctorInformations />} />
+
               <Route path='schedule' element={<DoctorScheduleSettings />} />
               <Route path="settings" element={<ProfileSettings />} />
               <Route path="timeoff" element={<DoctorTimeOff />} />
@@ -99,6 +112,7 @@ function App() {
             >
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<UserManagement />} />
+              <Route path="appointments" element={<AdminAppointments />} /> {/* <-- YENİ ROTA */}
               <Route path="settings" element={<ProfileSettings />} />
             </Route>
           </Route>

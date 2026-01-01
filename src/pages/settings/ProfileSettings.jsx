@@ -1,31 +1,14 @@
 import { useState, useEffect } from 'react';
 import {
-    Card,
-    Form,
-    Input,
-    Button,
-    Avatar,
-    Upload,
-    message,
-    Divider,
-    Typography,
-    Space,
-    Modal
+    Card, Form, Input, Button, Avatar, Upload, message, Divider, Typography, Space
 } from 'antd';
 import {
-    UserOutlined,
-    MailOutlined,
-    LockOutlined,
-    UploadOutlined,
-    SaveOutlined
+    UserOutlined, MailOutlined, UploadOutlined, SaveOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-    updateProfileStart,
-    updateProfileSuccess,
-    updateProfileFailure,
-    selectUserLoading,
-    selectUserSuccessMessage
+    updateProfileStart, updateProfileSuccess, updateProfileFailure,
+    selectUserLoading, selectUserSuccessMessage
 } from '../../store/slices/userSlice';
 import { selectUser, loginSuccess } from '../../store/slices/authSlice';
 import * as userService from '../../api/userService';
@@ -41,106 +24,95 @@ const ProfileSettings = () => {
     const [profileForm] = Form.useForm();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar);
 
-    // Form'u kullanıcı bilgileri ile doldur
     useEffect(() => {
         if (user) {
             profileForm.setFieldsValue({
                 name: user.name,
-                email: user.email
+                email: user.email // Form'a mevcut emaili yükle
             });
-            // Sadece user.avatar tanımlıysa güncelle (undefined olmasın)
             if (user.avatar !== undefined) {
                 setAvatarUrl(user.avatar);
             }
         }
     }, [user, profileForm]);
 
-    // Başarı mesajını göster
     useEffect(() => {
         if (successMessage) {
             message.success(successMessage);
         }
     }, [successMessage]);
 
-    // Profil güncelle
     const handleUpdateProfile = async (values) => {
         try {
             dispatch(updateProfileStart());
+
             const response = await userService.updateProfile({
                 name: values.name,
+                email: values.email,
                 avatar: avatarUrl
             });
 
-            // Backend response: { message: "...", user: {...} }
             const userData = response.user || response.data?.user || response.data || response;
+            const msg = response.message || response.data?.message;
 
+            // Redux store güncelle (Sadece isim ve avatar anında değişir, email değişmez)
             dispatch(updateProfileSuccess(userData));
-
-            // Auth state'i de güncelle
             dispatch(loginSuccess({
                 user: userData,
                 token: localStorage.getItem('token')
             }));
 
-            // Avatar state'ini güncelle
-            setAvatarUrl(userData.avatar);
-
-            message.success('Profil güncellendi! Sayfa yenileniyor...');
-
-            // localStorage'ın güncellenmesini bekle ve sayfayı yenile
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            // Eğer email değişikliği isteği varsa farklı mesaj göster
+            if (values.email !== user.email) {
+                message.info(msg, 6); // "Doğrulama linki gönderildi" mesajı
+                // Email inputunu eski haline getir (çünkü henüz değişmedi)
+                profileForm.setFieldsValue({ email: user.email });
+            } else {
+                message.success('Profil güncellendi!');
+                setAvatarUrl(userData.avatar);
+            }
         } catch (err) {
-            dispatch(updateProfileFailure(err.message));
-            message.error(err.message || 'Profil güncellenemedi');
+            // Backend'den gelen "Email kullanımda" hatası burada yakalanır
+            const errorMsg = err.response?.data?.message || err.message || 'Profil güncellenemedi';
+            dispatch(updateProfileFailure(errorMsg));
+            message.error(errorMsg);
         }
     };
 
-    // Avatar yükleme - local preview (backend endpoint yok)
     const handleAvatarChange = (info) => {
         const file = info.file.originFileObj || info.file;
-
         if (file) {
-            // Dosya tipi kontrolü
             const isImage = file.type?.startsWith('image/');
             if (!isImage) {
                 message.error('Sadece resim dosyaları yükleyebilirsiniz!');
                 return;
             }
-
-            // Dosya boyutu kontrolü (2MB)
             const isLt2M = file.size / 1024 / 1024 < 2;
             if (!isLt2M) {
                 message.error('Resim boyutu 2MB\'dan küçük olmalıdır!');
                 return;
             }
-
-            // Local preview için FileReader kullan
             const reader = new FileReader();
             reader.onload = (e) => {
                 setAvatarUrl(e.target.result);
-                message.success('Avatar önizlemesi yüklendi (kaydetmek için profili güncelleyin)');
+                message.success('Avatar önizlemesi yüklendi (kaydetmek için butona basınız)');
             };
             reader.readAsDataURL(file);
         }
     };
 
-    // beforeUpload - dosya yüklemeden önce kontrol
     const beforeUpload = (file) => {
         const isImage = file.type?.startsWith('image/');
         if (!isImage) {
             message.error('Sadece resim dosyaları yükleyebilirsiniz!');
             return false;
         }
-
         const isLt2M = file.size / 1024 / 1024 < 2;
         if (!isLt2M) {
             message.error('Resim boyutu 2MB\'dan küçük olmalıdır!');
             return false;
         }
-
-        return false; // Otomatik upload'u engelle
+        return false;
     };
 
     return (
@@ -150,14 +122,9 @@ const ProfileSettings = () => {
                 Profil Ayarları
             </Title>
 
-            {/* Profil Bilgileri */}
             <Card className="mb-6">
                 <div className="flex items-center gap-6 mb-6">
-                    <Avatar
-                        size={100}
-                        icon={<UserOutlined />}
-                        src={avatarUrl}
-                    />
+                    <Avatar size={100} icon={<UserOutlined />} src={avatarUrl} />
                     <div>
                         <Title level={4} className="!mb-1">{user?.name}</Title>
                         <Text type="secondary">{user?.email}</Text>
@@ -169,9 +136,7 @@ const ProfileSettings = () => {
                                 onChange={handleAvatarChange}
                                 accept="image/*"
                             >
-                                <Button icon={<UploadOutlined />}>
-                                    Avatar Değiştir
-                                </Button>
+                                <Button icon={<UploadOutlined />}>Avatar Değiştir</Button>
                             </Upload>
                         </div>
                     </div>
@@ -192,22 +157,23 @@ const ProfileSettings = () => {
                             { min: 2, message: 'En az 2 karakter olmalı' }
                         ]}
                     >
-                        <Input
-                            prefix={<UserOutlined />}
-                            placeholder="Ad Soyad"
-                            size="large"
-                        />
+                        <Input prefix={<UserOutlined />} placeholder="Ad Soyad" size="large" />
                     </Form.Item>
 
+                    {/* BURADA DEĞİŞİKLİK YAPILDI: disabled kaldırıldı ve kurallar eklendi */}
                     <Form.Item
                         label="E-posta"
                         name="email"
+                        rules={[
+                            { required: true, message: 'Lütfen email adresinizi girin' },
+                            { type: 'email', message: 'Geçerli bir email adresi girin' }
+                        ]}
                     >
                         <Input
                             prefix={<MailOutlined />}
                             placeholder="E-posta"
                             size="large"
-                            disabled
+                        // disabled  <-- Bu satır kaldırıldı
                         />
                     </Form.Item>
 
@@ -220,7 +186,7 @@ const ProfileSettings = () => {
                                 loading={loading}
                                 size="large"
                             >
-                                Kaydet
+                                Değişiklikleri Kaydet
                             </Button>
                         </Space>
                     </Form.Item>

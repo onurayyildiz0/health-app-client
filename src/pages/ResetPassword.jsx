@@ -2,51 +2,49 @@ import { useState } from 'react';
 import { Card, Form, Input, Button, message, Result } from 'antd';
 import { LockOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { resetPassword } from '../api/authService';
+// DÜZELTME 1: Eğer userService içinde "export const resetPassword" kullanıldıysa süslü parantez eklenmeli.
+// Eğer "export default" ise parantezsiz kalabilir, ancak genelde servis dosyaları const export eder.
+import { resetPassword } from '../api/userService'; 
 
 const ResetPassword = () => {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
-    const [form] = Form.useForm();
     const { token } = useParams();
     const navigate = useNavigate();
 
     const handleSubmit = async (values) => {
+        setLoading(true);
         try {
-            setLoading(true);
+            // API isteği
             await resetPassword(token, values.password);
+            
             setSuccess(true);
-            message.success('Şifreniz başarıyla sıfırlandı!');
-
-            // 3 saniye sonra login sayfasına yönlendir
-            setTimeout(() => {
-                navigate('/login');
-            }, 3000);
+            message.success('Şifreniz başarıyla güncellendi.');
+            setTimeout(() => navigate('/login'), 3000);
         } catch (error) {
-            message.error(
-                error.response?.data?.message ||
-                'Şifre sıfırlama başarısız. Link geçersiz veya süresi dolmuş olabilir.'
-            );
-        } finally {
-            setLoading(false);
+            console.error(error); // Hata detayını konsolda görmek için
+            
+            // DÜZELTME 2: Error objesini doğrudan değil, içindeki mesajı string olarak veriyoruz.
+            const errorMsg = error.response?.data?.message || error.message || 'Şifre sıfırlama başarısız oldu.';
+            message.error(errorMsg);
+        } finally { 
+            setLoading(false); 
         }
     };
 
     if (success) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-                <Card className="w-full max-w-md shadow-xl">
-                    <Result
-                        status="success"
-                        title="Şifre Başarıyla Sıfırlandı!"
-                        subTitle="Şifreniz başarıyla değiştirildi. Yeni şifrenizle giriş yapabilirsiniz. 3 saniye sonra giriş sayfasına yönlendirileceksiniz..."
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+                <Card className="w-full max-w-md shadow-xl rounded-3xl border-0">
+                    <Result 
+                        status="success" 
+                        title="Şifre Sıfırlandı!" 
+                        subTitle="Giriş sayfasına yönlendiriliyorsunuz..." 
                         extra={[
-                            <Link to="/login" key="login">
-                                <Button type="primary" icon={<CheckCircleOutlined />}>
-                                    Giriş Yap
-                                </Button>
+                            <Link key="l" to="/login">
+                                <Button type="primary">Giriş Yap</Button>
                             </Link>
-                        ]}
+                        ]} 
                     />
                 </Card>
             </div>
@@ -54,90 +52,60 @@ const ResetPassword = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-            <Card className="w-full max-w-md shadow-xl">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+            <Card className="w-full max-w-md shadow-xl rounded-3xl border-0" styles={{ body: { padding: '2.5rem' } }}>
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                        <LockOutlined className="text-3xl text-blue-600" />
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 text-3xl">
+                        <LockOutlined />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800">Yeni Şifre Belirle</h2>
-                    <p className="text-gray-600 mt-2">
-                        Lütfen yeni şifrenizi girin
-                    </p>
                 </div>
-
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleSubmit}
-                    autoComplete="off"
-                >
-                    <Form.Item
-                        name="password"
-                        label="Yeni Şifre"
-                        rules={[
-                            { required: true, message: 'Şifre gerekli' },
-                            { min: 6, message: 'Şifre en az 6 karakter olmalı' },
-                            {
-                                pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                                message: 'Şifre en az 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir'
-                            }
-                        ]}
-                        hasFeedback
+                <Form layout="vertical" onFinish={handleSubmit}>
+                    <Form.Item 
+                        name="password" 
+                        rules={[{ required: true, min: 6, message: 'En az 6 karakter olmalı' }]}
                     >
-                        <Input.Password
-                            prefix={<LockOutlined />}
-                            placeholder="Yeni şifrenizi girin"
-                            size="large"
+                        <Input.Password 
+                            prefix={<LockOutlined />} 
+                            placeholder="Yeni Şifre" 
+                            size="large" 
+                            className="rounded-xl py-3" 
                         />
                     </Form.Item>
-
-                    <Form.Item
-                        name="confirmPassword"
-                        label="Şifre Tekrar"
-                        dependencies={['password']}
-                        hasFeedback
+                    <Form.Item 
+                        name="confirm" 
+                        dependencies={['password']} 
                         rules={[
-                            { required: true, message: 'Lütfen şifrenizi tekrar girin' },
-                            ({ getFieldValue }) => ({
-                                validator(_, value) {
-                                    if (!value || getFieldValue('password') === value) {
-                                        return Promise.resolve();
-                                    }
-                                    return Promise.reject(new Error('Şifreler eşleşmiyor!'));
-                                }
+                            { required: true, message: 'Şifre tekrarı gerekli' }, 
+                            ({ getFieldValue }) => ({ 
+                                validator(_, value) { 
+                                    return !value || getFieldValue('password') === value 
+                                        ? Promise.resolve() 
+                                        : Promise.reject(new Error('Şifreler eşleşmiyor!')); 
+                                } 
                             })
                         ]}
                     >
-                        <Input.Password
-                            prefix={<LockOutlined />}
-                            placeholder="Şifrenizi tekrar girin"
-                            size="large"
+                        <Input.Password 
+                            prefix={<CheckCircleOutlined />} 
+                            placeholder="Şifre Tekrar" 
+                            size="large" 
+                            className="rounded-xl py-3" 
                         />
                     </Form.Item>
-
-                    <Form.Item>
-                        <Button
-                            type="primary"
-                            htmlType="submit"
-                            loading={loading}
-                            block
-                            size="large"
-                            className="mt-4"
-                        >
-                            Şifremi Sıfırla
-                        </Button>
-                    </Form.Item>
+                    <Button 
+                        type="primary" 
+                        htmlType="submit" 
+                        loading={loading} 
+                        block 
+                        size="large" 
+                        className="h-12 rounded-xl font-bold bg-green-600 shadow-lg"
+                    >
+                        Kaydet
+                    </Button>
                 </Form>
-
-                <div className="text-center mt-4">
-                    <Link to="/login" className="text-blue-600 hover:text-blue-800">
-                        Giriş sayfasına dön
-                    </Link>
-                </div>
             </Card>
         </div>
     );
 };
-
 export default ResetPassword;

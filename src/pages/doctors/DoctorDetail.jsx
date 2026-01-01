@@ -1,37 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-    Card,
-    Row,
-    Col,
-    Avatar,
-    Tag,
-    Rate,
-    Button,
-    Tabs,
-    Empty,
-    Spin,
-    Typography,
-    Divider,
-    Space,
-    message,
-    Modal,
-    Form,
-    Input,
-    DatePicker,
-    TimePicker
+    Card, Row, Col, Avatar, Tag, Rate, Button, Spin,
+    Typography, Space, message, Modal, Form, Input, Descriptions
 } from 'antd';
 import {
-    UserOutlined,
-    CalendarOutlined,
-    StarFilled,
-    HeartOutlined,
-    HeartFilled,
-    ClockCircleOutlined,
-    EnvironmentOutlined,
-    PhoneOutlined,
-    MailOutlined,
-    DeleteOutlined,
-    ExclamationCircleOutlined
+    UserOutlined, CalendarOutlined, StarFilled, HeartOutlined, HeartFilled,
+    EnvironmentOutlined, MailOutlined, SafetyCertificateOutlined,
+    ClockCircleOutlined, MedicineBoxOutlined
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -39,459 +14,435 @@ import dayjs from 'dayjs';
 import * as doctorService from '../../api/doctorService';
 import * as reviewService from '../../api/reviewService';
 import * as userService from '../../api/userService';
-import * as appointmentService from '../../api/appointmentService';
+import specialityService from '../../api/specialityService'; // Yeni servis eklendi
 import {
-    fetchDoctorByIdStart,
-    fetchDoctorByIdSuccess,
-    fetchDoctorByIdFailure,
-    fetchDoctorReviewsSuccess,
-    selectSelectedDoctor,
-    selectDoctorReviews,
-    selectDoctorLoading
+    fetchDoctorByIdStart, fetchDoctorByIdSuccess, fetchDoctorByIdFailure,
+    fetchDoctorReviewsSuccess, selectSelectedDoctor, selectDoctorReviews, selectDoctorLoading
 } from '../../store/slices/doctorSlice';
 import {
-    addFavoriteDoctorSuccess,
-    removeFavoriteDoctorSuccess,
-    selectFavoriteDoctors
+    addFavoriteDoctorSuccess, removeFavoriteDoctorSuccess, selectFavoriteDoctors
 } from '../../store/slices/userSlice';
 import { selectUser } from '../../store/slices/authSlice';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
-const { TabPane } = Tabs;
+
+// Günleri doğru sıraya sokmak ve çevirmek için yardımcı sabitler
+const DAYS_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const DAYS_TR = {
+    monday: 'Pazartesi',
+    tuesday: 'Salı',
+    wednesday: 'Çarşamba',
+    thursday: 'Perşembe',
+    friday: 'Cuma',
+    saturday: 'Cumartesi',
+    sunday: 'Pazar'
+};
 
 const DoctorDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const [form] = Form.useForm();
 
+    // Redux State
     const doctor = useSelector(selectSelectedDoctor);
     const reviews = useSelector(selectDoctorReviews);
     const loading = useSelector(selectDoctorLoading);
     const user = useSelector(selectUser);
     const favoriteDoctors = useSelector(selectFavoriteDoctors);
 
+    // Local State
     const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
-    const [reviewForm] = Form.useForm();
-    const [submittingReview, setSubmittingReview] = useState(false);
-    const [userAppointments, setUserAppointments] = useState([]);
+    const [submitting, setSubmitting] = useState(false);
+    const [parsedClocks, setParsedClocks] = useState(null);
+    const [specialities, setSpecialities] = useState([]); // Uzmanlık listesi için state
 
-    // Favoride mi kontrol et
-    const isFavorite = Array.isArray(favoriteDoctors) && favoriteDoctors.some(d => d?._id === id);
+    // Favori Kontrolü
+    const isFavorite = Array.isArray(favoriteDoctors) && favoriteDoctors.some(d => d?.id === parseInt(id));
+    const isOwnProfile = user?.role === 'doctor' && user.id === doctor?.user?.id;
 
-    // Geçmiş randevu kontrolü
-    const hasPastAppointmentWithDoctor = userAppointments.some(apt => 
-        apt.doctor._id === id && 
-        (apt.status === 'completed' || apt.status === 'cancelled') && 
-        new Date(apt.date) < new Date()
-    );
-
-    // Doktor detayını yükle
+    // Veri Çekme
     useEffect(() => {
-        const fetchDoctorDetail = async () => {
+        const fetchData = async () => {
             try {
                 dispatch(fetchDoctorByIdStart());
-                const response = await doctorService.getDoctorById(id);
-                dispatch(fetchDoctorByIdSuccess(response.data || response));
+                
+                // Paralel veri çekimi (Doktor Detayı + Yorumlar + Uzmanlık Listesi)
+                const [docRes, revRes, specRes] = await Promise.all([
+                    doctorService.getDoctorById(id),
+                    reviewService.getReviewsByDoctor(id),
+                    specialityService.getAllSpecialities()
+                ]);
 
-                // Yorumları da yükle
-                const reviewsResponse = await reviewService.getReviewsByDoctor(id);
-                dispatch(fetchDoctorReviewsSuccess(reviewsResponse.data || reviewsResponse));
+                // Doktor Verisi İşleme
+                const doctorData = docRes.data || docRes;
+                dispatch(fetchDoctorByIdSuccess(doctorData));
+
+                // Yorum Verisi İşleme
+                dispatch(fetchDoctorReviewsSuccess(revRes.data || revRes));
+
+                // Uzmanlık Listesi İşleme
+                setSpecialities(specRes.data || specRes || []);
+
+                // Çalışma saatlerini parse et
+                if (doctorData.clocks && typeof doctorData.clocks === 'string') {
+                    try {
+                        setParsedClocks(JSON.parse(doctorData.clocks));
+                    } catch (e) {
+                        console.error("Clocks parse error", e);
+                        setParsedClocks({});
+                    }
+                } else if (typeof doctorData.clocks === 'object') {
+                    setParsedClocks(doctorData.clocks);
+                }
+
             } catch (err) {
+                console.error(err);
                 dispatch(fetchDoctorByIdFailure(err.message));
-                message.error('Doktor bilgileri yüklenirken hata oluştu');
+                message.error('Doktor bilgileri yüklenemedi');
             }
         };
+        fetchData();
+        // eslint-disable-next-line
+    }, [id, dispatch]);
 
-        fetchDoctorDetail();
-
-        // Kullanıcının randevularını çek (yorum yapabilmek için geçmiş randevu kontrolü)
-        if (user && user.role === 'patient') {
-            const fetchUserAppointments = async () => {
-                try {
-                    const response = await appointmentService.getPatientAppointments();
-                    setUserAppointments(response.data || response);
-                } catch (err) {
-                    console.error('Randevular yüklenirken hata:', err);
-                }
-            };
-            fetchUserAppointments();
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
-
-    // Favorilere ekle/çıkar
+    // Favori İşlemi
     const handleToggleFavorite = async () => {
-        if (!user) {
-            message.warning('Favori eklemek için giriş yapmalısınız');
-            navigate('/login');
-            return;
-        }
-
+        if (!user) return navigate('/login');
         try {
             if (isFavorite) {
                 await userService.removeFavoriteDoctor(id);
                 dispatch(removeFavoriteDoctorSuccess(id));
                 message.success('Favorilerden çıkarıldı');
             } else {
-                const response = await userService.addFavoriteDoctor(id);
-                // Backend'den gelen doktor objesini Redux'a ekle
-                const doctorData = response.data || response;
-                // Eğer backend sadece ID dönüyorsa, mevcut doctor objesini kullan
-                const favoriteDoctor = doctorData.doctor || doctor;
-                dispatch(addFavoriteDoctorSuccess(favoriteDoctor));
+                await userService.addFavoriteDoctor(parseInt(id));
+                dispatch(addFavoriteDoctorSuccess(doctor));
                 message.success('Favorilere eklendi');
             }
         } catch (err) {
-            console.error('Favori toggle error:', err);
-            message.error(err.message || 'İşlem başarısız');
+            console.error(err);
+            message.error('Favori işlemi başarısız. Lütfen tekrar deneyin.');
         }
     };
 
-    // Randevu al
-    const handleBookAppointment = () => {
-        if (!user) {
-            message.warning('Randevu almak için giriş yapmalısınız');
-            navigate('/login');
-            return;
-        }
-        navigate(`/dashboard/patient/create-appointment?doctorId=${id}`);
-    };
-
-    const handleDeleteReview = (reviewId) => {
-        Modal.confirm({
-            title: 'Değerlendirmeyi Sil',
-            icon: <ExclamationCircleOutlined />,
-            content: 'Bu değerlendirmeyi silmek istediğinize emin misiniz?',
-            okText: 'Evet',
-            cancelText: 'Hayır',
-            onOk: async () => {
-                try {
-                    await reviewService.deleteReview(reviewId);
-                    message.success('Değerlendirme silindi');
-
-                    // 1. Yorumları güncelle (Listeden gitmesi için)
-                    const reviewsResponse = await reviewService.getReviewsByDoctor(id);
-                    dispatch(fetchDoctorReviewsSuccess(reviewsResponse.data || reviewsResponse));
-
-                    // 2. Doktor puanını güncelle (Yıldızların değişmesi için)
-                    const doctorResponse = await doctorService.getDoctorById(id);
-                    dispatch(fetchDoctorByIdSuccess(doctorResponse.data || doctorResponse));
-
-                } catch (err) {
-                    message.error(err.message || 'Silme işlemi başarısız');
-                }
-            }
-        });
-    };
-
-    // Değerlendirme ekle
-    // Değerlendirme ekle
+    // Yorum Ekleme
     const handleAddReview = async (values) => {
         try {
-            setSubmittingReview(true);
-            await reviewService.addReview({
-                doctorId: id,
-                rating: values.rating,
-                comment: values.comment
-            });
-
-            // 1. Yorumları yeniden yükle (Burası sende zaten vardı)
-            const reviewsResponse = await reviewService.getReviewsByDoctor(id);
-            dispatch(fetchDoctorReviewsSuccess(reviewsResponse.data || reviewsResponse));
-
-            // 2. EKLENEN KISIM: Doktor detaylarını (Puan ve Sayısını) da yeniden yükle
-            // Backend'in yeni ortalamayı hesaplamış halini çekmemiz lazım.
-            const doctorResponse = await doctorService.getDoctorById(id);
-            dispatch(fetchDoctorByIdSuccess(doctorResponse.data || doctorResponse));
-
-            message.success('Değerlendirmeniz eklendi');
+            setSubmitting(true);
+            await reviewService.addReview({ doctorId: parseInt(id), ...values });
+            message.success('Yorumunuz başarıyla eklendi');
             setIsReviewModalVisible(false);
-            reviewForm.resetFields();
+            form.resetFields();
+
+            // Yorumları yenile
+            const revRes = await reviewService.getReviewsByDoctor(id);
+            dispatch(fetchDoctorReviewsSuccess(revRes.data || revRes));
         } catch (err) {
-            message.error(err.message || 'Değerlendirme eklenemedi');
+            message.error(err.response?.data?.message || 'Yorum eklenemedi');
         } finally {
-            setSubmittingReview(false);
+            setSubmitting(false);
         }
     };
 
-    // Çalışma günlerini formatla
-    const getWorkingDays = () => {
-        if (!doctor?.clocks) return [];
-
-        const days = {
-            monday: 'Pazartesi',
-            tuesday: 'Salı',
-            wednesday: 'Çarşamba',
-            thursday: 'Perşembe',
-            friday: 'Cuma',
-            saturday: 'Cumartesi',
-            sunday: 'Pazar'
-        };
-
-        return Object.entries(doctor.clocks)
-            .filter(([, value]) => value && value.start && value.end)
-            .map(([day, time]) => ({
-                day: days[day],
-                time: `${time.start} - ${time.end}`
-            }));
+    // Helper: Uzmanlık İsmini Bul
+    const getSpecialityName = () => {
+        if (!doctor) return '';
+        // 1. Backend Navigation Property gönderdiyse (örn: Include ile)
+        if (doctor.specialityNavigation?.name) return doctor.specialityNavigation.name;
+        // 2. Speciality zaten obje olarak geldiyse
+        if (typeof doctor.speciality === 'object' && doctor.speciality?.name) return doctor.speciality.name;
+        // 3. Speciality string olarak geldiyse (Legacy destek)
+        if (typeof doctor.speciality === 'string' && isNaN(doctor.speciality)) return doctor.speciality;
+        // 4. Speciality ID ise ve listemiz varsa eşleştir
+        if (specialities.length > 0) {
+            // eslint-disable-next-line
+            const found = specialities.find(s => s.id == doctor.speciality);
+            if (found) return found.name;
+        }
+        return 'Uzman';
     };
 
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                <Spin size="large" tip="Doktor bilgileri yüklen iyor...">
-                    <div style={{ padding: 50 }} />
-                </Spin>
-            </div>
-        );
-    }
+    // Çalışma Saatlerini Sıralı Listeleme
+    const renderClocks = useMemo(() => {
+        if (!parsedClocks) return <Text type="secondary">Saat bilgisi bulunmuyor.</Text>;
 
-    if (!doctor) {
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                <Empty description="Doktor bulunamadı">
-                    <Button type="primary" onClick={() => navigate('/dashboard/patient/doctors')}>
-                        Doktor Listesine Dön
-                    </Button>
-                </Empty>
-            </div>
-        );
-    }
+        return DAYS_ORDER.map(dayKey => {
+            const timeData = parsedClocks[dayKey];
+            const isActive = timeData && timeData.start && timeData.end;
+
+            return (
+                <div key={dayKey} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 px-2 rounded transition-colors">
+                    <span className="font-medium text-gray-600 w-24">{DAYS_TR[dayKey]}</span>
+                    {isActive ? (
+                        <Tag color="blue" className="m-0 font-medium">
+                            {timeData.start} - {timeData.end}
+                        </Tag>
+                    ) : (
+                        <Tag color="red" className="m-0">Kapalı</Tag>
+                    )}
+                </div>
+            );
+        });
+    }, [parsedClocks]);
+
+    if (loading) return <div className="flex justify-center items-center h-screen"><Spin size="large" tip="Yükleniyor..." /></div>;
+    if (!doctor) return <div className="flex justify-center mt-20"><Text>Doktor bulunamadı.</Text></div>;
 
     return (
-        <>
-            <div className="min-h-screen bg-gray-50 py-8">
-                <div className="max-w-7xl mx-auto px-4">
-                    {/* Profil Kartı */}
-                    <Card className="mb-6">
-                        <Row gutter={[24, 24]}>
-                            <Col xs={24} md={8} xl={6} className="text-center">
-                                <Avatar
-                                    size={150}
-                                    icon={<UserOutlined />}
-                                    src={doctor.user?.avatar}
-                                    className="mb-4"
-                                />
-                                <Title level={3} className="!mb-2">
-                                    Dr. {doctor.user?.name}
-                                </Title>
-                                <Tag color="blue" className="text-lg px-4 py-1">
-                                    {doctor.speciality}
-                                </Tag>
+        <div className="min-h-screen bg-gray-50/50 py-8">
+            <div className="max-w-7xl mx-auto gap-4 px-4 sm:px-6">
 
-                                <div className="flex items-center justify-center gap-2 my-4">
-                                    <Rate
-                                        disabled
-                                        allowHalf
-                                        value={doctor.rating || 0}
-                                        style={{ fontSize: 20 }}
+                {/* Header Card */}
+                <Card className="shadow-lg border-0 rounded-2xl mb-8 overflow-hidden">
+                    <div className="h-1/2 bg-gradient-to-r from-blue-600 to-indigo-400 absolute top-0 left-0 w-full opacity-90"></div>
+                    <div className="relative pt-12 px-4 sm:px-8 pb-4">
+                        <Row gutter={[32, 24]} align="middle">
+                            <Col xs={24} md={6} lg={5} className="text-center">
+                                <div className="relative inline-block">
+                                    <Avatar
+                                        size={160}
+                                        src={doctor.user?.avatar}
+                                        icon={<UserOutlined />}
+                                        className="border-4 border-white shadow-xl bg-gray-200"
                                     />
-                                    <Text className="text-lg">
-                                        {doctor.rating?.toFixed(1) || '0.0'} ({doctor.reviewCount || 0} değerlendirme)
-                                    </Text>
+                                    {doctor.isVerified && (
+                                        <div className="absolute bottom-2 right-2 bg-white rounded-full p-1.5 shadow-md" title="Onaylı Doktor">
+                                            <SafetyCertificateOutlined className="text-2xl text-blue-500 block" />
+                                        </div>
+                                    )}
                                 </div>
-
-                                <Space direction="vertical" className="w-full" size="middle">
-                                    <Button
-                                        type="primary"
-                                        size="large"
-                                        icon={<CalendarOutlined />}
-                                        onClick={handleBookAppointment}
-                                        block
-                                    >
-                                        Randevu Al
-                                    </Button>
-                                    {user?.role === 'patient' && (
-                                        <Button
-                                            size="large"
-                                            icon={isFavorite ? <HeartFilled /> : <HeartOutlined />}
-                                            onClick={handleToggleFavorite}
-                                            danger={isFavorite}
-                                            block
-                                        >
-                                            {isFavorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
-                                        </Button>
-                                    )}
-                                </Space>
                             </Col>
-
-                            <Col xs={24} md={16} xl={18}>
-                                <Title level={4}>Hakkında</Title>
-                                <Paragraph>
-                                    {doctor.bio || 'Henüz bir biyografi eklenmemiş.'}
-                                </Paragraph>
-
-                                <Divider />
-
-                                <Title level={4}>Muayene Ücreti</Title>
-                                <Space direction="vertical" size="small" className="mb-4">
-                                    {doctor.consultationFee > 0 ? (
-                                        <Text strong style={{ fontSize: '20px', color: '#1890ff' }}>
-                                            ₺{doctor.consultationFee} <Text type="secondary" style={{ fontSize: '14px' }}>/ saat</Text>
-                                        </Text>
-                                    ) : (
-                                        <Text type="secondary">Ücret bilgisi belirtilmemiş</Text>
-                                    )}
-                                </Space>
-
-                                <Divider />
-
-                                <Title level={4}>İletişim Bilgileri</Title>
-                                <Space direction="vertical" size="small">
-                                    {doctor.user?.email && (
-                                        <Text>
-                                            <MailOutlined /> {doctor.user.email}
-                                        </Text>
-                                    )}
-                                    {doctor.user?.phone && (
-                                        <Text>
-                                            <PhoneOutlined /> {doctor.user.phone}
-                                        </Text>
-                                    )}
-                                    {doctor.location && (
-                                        <Text>
-                                            <EnvironmentOutlined /> {doctor.location}
-                                        </Text>
-                                    )}
-                                    {doctor.address && (
-                                        <Text>
-                                            <EnvironmentOutlined /> {doctor.address}
-                                        </Text>
-                                    )}
-                                </Space>
-
-                                {getWorkingDays().length > 0 && (
-                                    <>
-                                        <Divider />
-                                        <Title level={4}>
-                                            <ClockCircleOutlined /> Çalışma Saatleri
-                                        </Title>
-                                        <Row gutter={[16, 8]}>
-                                            {getWorkingDays().map((item, index) => (
-                                                <Col span={12} key={index}>
-                                                    <Text strong>{item.day}:</Text> {item.time}
-                                                </Col>
-                                            ))}
-                                        </Row>
-                                    </>
-                                )}
-                            </Col>
-                        </Row>
-                    </Card>
-
-                    {/* Değerlendirmeler */}
-                    <Card>
-                        <div className="flex justify-between items-center mb-4">
-                            <Title level={4} className="!mb-0">
-                                Değerlendirmeler ({reviews?.length || 0})
-                            </Title>
-                            {user?.role === 'patient' && hasPastAppointmentWithDoctor && (
-                                <Button
-                                    type="primary"
-                                    icon={<StarFilled />}
-                                    onClick={() => setIsReviewModalVisible(true)}
-                                >
-                                    Değerlendirme Yap
-                                </Button>
-                            )}
-                        </div>
-
-                        {reviews && reviews.length > 0 ? (
-                            <Space direction="vertical" className="w-full" size="large">
-                                {reviews.map((review) => (
-                                    <Card key={review._id} size="small" extra={
-                                        (user?._id === review.patient?._id || user?.role === 'admin') && (
-                                            <Button
-                                                type="text"
-                                                danger
-                                                icon={<DeleteOutlined />}
-                                                onClick={() => handleDeleteReview(review._id)}
-                                            />
-                                        )
-                                    }>
-                                      
-                                        <div className="flex gap-3">
-                                            <Avatar
-                                                icon={<UserOutlined />}
-                                                src={review.patient?.avatar}
-                                            />
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <Text strong>{review.patient?.name}</Text>
-                                                        <br />
-                                                        <Rate
-                                                            disabled
-                                                            value={review.rating}
-                                                            style={{ fontSize: 14 }}
-                                                        />
-                                                    </div>
-                                                    <Text type="secondary" className="text-sm">
-                                                        {dayjs(review.createdAt).format('DD.MM.YYYY')}
-                                                    </Text>
+                            <Col xs={24} md={18} lg={19}>
+                                <div className="mt-4 md:mt-0 text-center md:text-left">
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2">
+                                        <div>
+                                            <Title level={2} className="!mb-0 !mt-2">
+                                                Dr. {doctor.user?.name}
+                                            </Title>
+                                            {/* GÜNCELLENDİ: Uzmanlık İsmi Fonksiyonla Çekiliyor */}
+                                            <Text type="secondary" className="text-lg block mb-2">
+                                                {getSpecialityName()} Uzmanı
+                                            </Text>
+                                        </div>
+                                        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100 mt-2 md:mt-0">
+                                            <div className="text-center">
+                                                <div className="flex items-center gap-1 text-yellow-400">
+                                                    <StarFilled />
+                                                    <span className="text-gray-800 font-bold text-lg">{doctor.rating ? doctor.rating.toFixed(1) : "0.0"}</span>
                                                 </div>
-                                                {review.comment && (
-                                                    <Paragraph className="mt-2 mb-0">
-                                                        {review.comment}
-                                                    </Paragraph>
-                                                )}
+                                                <Text type="secondary" className="text-xs">{doctor.reviewCount} Değerlendirme</Text>
                                             </div>
                                         </div>
-                                    </Card>
-                                ))}
-                            </Space>
-                        ) : (
-                            <Empty description="Henüz değerlendirme yapılmamış" />
-                        )}
-                    </Card>
-                </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-6">
+                                        {doctor.hospital && <Tag icon={<EnvironmentOutlined />} color="cyan">{doctor.hospital}</Tag>}
+                                        <Tag icon={<MedicineBoxOutlined />} color="purple">{doctor.experience ? `${doctor.experience} Yıl Deneyim` : 'Deneyim belirtilmemiş'}</Tag>
+                                    </div>
+
+                                    <Space size="middle" className="w-full justify-center md:justify-start">
+                                        {!isOwnProfile && (
+                                            <>
+                                                <Button
+                                                    type="primary"
+                                                    size="large"
+                                                    icon={<CalendarOutlined />}
+                                                    className="bg-blue-600 hover:bg-blue-500 px-8 h-12 rounded-lg"
+                                                    onClick={() => navigate(`/dashboard/patient/create-appointment?doctorId=${id}`)}
+                                                >
+                                                    Randevu Al
+                                                </Button>
+                                                {user?.role === 'patient' && (
+                                                    <Button
+                                                        size="large"
+                                                        className="h-12 rounded-lg"
+                                                        icon={isFavorite ? <HeartFilled className="text-red-500" /> : <HeartOutlined />}
+                                                        onClick={handleToggleFavorite}
+                                                    >
+                                                        {isFavorite ? 'Favorilerde' : 'Favorile'}
+                                                    </Button>
+                                                )}
+                                            </>
+                                        )}
+                                        {isOwnProfile && (
+                                            <Button type="default" size="large" onClick={() => navigate('/dashboard/doctor/settings')}>
+                                                Profili Düzenle
+                                            </Button>
+                                        )}
+                                    </Space>
+                                </div>
+                            </Col>
+                        </Row>
+                    </div>
+                </Card>
+
+                <Row gutter={[24, 24]}>
+                    {/* Sol Kolon: Hakkında & İletişim */}
+                    <Col xs={24} lg={16}>
+                        <Card
+                            title="Hakkında"
+                            className="top-8 shadow-sm border-0 rounded-xl  overflow-hidden"
+                            headStyle={{ borderBottom: '1px solid #f0f0f0' }}
+                            bodyStyle={{ padding: '24px' }}
+                        >
+                            <div className="flex flex-col md:flex-row h-full">
+                                {/* SOL TARAF (Bilgiler) */}
+                                <div className="w-full md:w-1/3 lg:w-1/2 border-b border-gray-200 md:border-b-0 md:border-r md:pr-6 pb-6 md:pb-0 mb-6 md:mb-0 flex-shrink-0">
+
+                                    <div className="bg-gray-50 p-4 rounded-lg h-full">
+                                        <Descriptions column={1} size="small" colon={false} layout="vertical">
+
+                                            {/* E-Posta */}
+                                            <Descriptions.Item label={<span className="text-gray-500 font-medium text-xs uppercase tracking-wide">İletişim</span>}>
+                                                <span className="flex items-start gap-2 text-gray-700">
+                                                    <MailOutlined className="text-blue-500 mt-1" />
+                                                    <span className="break-all text-sm font-medium">{doctor.user?.email}</span>
+                                                </span>
+                                            </Descriptions.Item>
+
+                                            {/* Konum */}
+                                            <Descriptions.Item label={<span className="text-gray-500 font-medium text-xs uppercase tracking-wide mt-4 block">Konum</span>}>
+                                                <span className="flex items-start gap-2 text-gray-700">
+                                                    <EnvironmentOutlined className="text-red-500 mt-1" />
+                                                    <span className="text-sm font-medium">{doctor.location || 'Konum Bilgisi Yok'}</span>
+                                                </span>
+                                            </Descriptions.Item>
+
+                                            {/* Ücret - Vurgulu Alan */}
+                                            <Descriptions.Item className="mt-4 pt-4 border-t border-gray-200">
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs text-gray-500 mb-1">Muayene Ücreti</span>
+                                                    <span className="font-bold text-xl text-green-600">
+                                                        {doctor.consultationFee ? `₺${doctor.consultationFee}` : 'Belirtilmemiş'}
+                                                    </span>
+                                                </div>
+                                            </Descriptions.Item>
+
+                                        </Descriptions>
+                                    </div>
+                                </div>
+
+                                {/* SAĞ TARAF (Biyografi) */}
+                                <div className="flex-1 md:pl-6">
+                                    <h4 className="text-gray-800 font-bold text-lg mb-4 flex items-center gap-2">
+                                        Doktor Hakkında
+                                    </h4>
+
+                                    <Paragraph
+                                        className="text-gray-600 leading-7 text-base text-justify"
+                                        ellipsis={false}
+                                    >
+                                        {doctor.about || (
+                                            <span className="text-gray-400 italic">
+                                                Bu doktor henüz kendisi hakkında detaylı bir biyografi eklememiş.
+                                            </span>
+                                        )}
+                                    </Paragraph>
+                                </div>
+
+                            </div>
+                        </Card>
+
+                        {/* Yorumlar Alanı */}
+                        <Card
+                            className="shadow-sm border-0 rounded-xl top-16"
+                            title={<span className="text-lg font-semibold">Hasta Değerlendirmeleri ({reviews?.length || 0})</span>}
+                            extra={
+                                user?.role === 'patient' && !isOwnProfile && (
+                                    <Button type="link" onClick={() => setIsReviewModalVisible(true)}>
+                                        Değerlendirme Yaz
+                                    </Button>
+                                )
+                            }
+                        >
+                            {reviews && reviews.length > 0 ? (
+                                <div className="flex flex-col gap-6">
+                                    {reviews.map(review => (
+                                        <div key={review.id} className="bg-white">
+                                            <div className="flex items-start gap-4">
+                                                <Avatar
+                                                    src={review.patient?.avatar}
+                                                    icon={<UserOutlined />}
+                                                    className="bg-blue-100 text-blue-600 mt-1"
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <Text strong>{review.patient?.name || 'Anonim Hasta'}</Text>
+                                                        <Text type="secondary" className="text-xs">
+                                                            {dayjs(review.createdAt).format('DD.MM.YYYY')}
+                                                        </Text>
+                                                    </div>
+                                                    <Rate disabled value={review.rating} style={{ fontSize: 14 }} className="mb-2 block" />
+                                                    <Paragraph className="text-gray-600 mb-0">
+                                                        {review.comment}
+                                                    </Paragraph>
+                                                </div>
+                                            </div>
+                                            <div className="border-b border-gray-100 mt-4 w-full" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 text-gray-400">
+                                    <MedicineBoxOutlined style={{ fontSize: 32, marginBottom: 8 }} />
+                                    <p>Henüz yorum yapılmamış.</p>
+                                </div>
+                            )}
+                        </Card>
+                    </Col>
+
+                    {/* Sağ Kolon: Çalışma Saatleri */}
+                    <Col xs={24} lg={8}>
+                        <Card
+                            title={<><ClockCircleOutlined /> Çalışma Saatleri</>}
+                            className="shadow-sm border-0 rounded-xl sticky top-8"
+                        >
+                            <div className="flex flex-col">
+                                {renderClocks}
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                <Text type="secondary" className="text-xs">
+                                    * Resmi tatillerde çalışma saatleri değişiklik gösterebilir.
+                                </Text>
+                            </div>
+                        </Card>
+                    </Col>
+                </Row>
             </div>
 
-            {/* Değerlendirme Modal */}
+            {/* Yorum Modal */}
             <Modal
-                title="Değerlendirme Yap"
+                title="Doktoru Değerlendir"
                 open={isReviewModalVisible}
                 onCancel={() => setIsReviewModalVisible(false)}
                 footer={null}
+                centered
             >
-                <Form
-                    form={reviewForm}
-                    layout="vertical"
-                    onFinish={handleAddReview}
-                >
+                <Form form={form} layout="vertical" onFinish={handleAddReview}>
                     <Form.Item
                         name="rating"
-                        label="Puan"
+                        label="Puanınız"
                         rules={[{ required: true, message: 'Lütfen puan verin' }]}
                     >
-                        <Rate />
+                        <Rate className="text-2xl" />
                     </Form.Item>
-
                     <Form.Item
                         name="comment"
                         label="Yorumunuz"
-                        rules={[{ required: true, message: 'Lütfen yorum yazın' }]}
+                        rules={[
+                            { required: true, message: 'Lütfen yorum yazın' },
+                            { min: 5, message: 'Yorum en az 5 karakter olmalıdır' }
+                        ]}
                     >
-                        <TextArea rows={4} placeholder="Deneyiminizi paylaşın..." />
+                        <TextArea rows={4} placeholder="Deneyiminizi paylaşın..." maxLength={500} showCount />
                     </Form.Item>
-
-                    <Form.Item className="mb-0">
-                        <Space>
-                            <Button type="primary" htmlType="submit" loading={submittingReview}>
-                                Gönder
-                            </Button>
-                            <Button onClick={() => setIsReviewModalVisible(false)}>
-                                İptal
-                            </Button>
-                        </Space>
-                    </Form.Item>
+                    <Button type="primary" htmlType="submit" loading={submitting} block size="large">
+                        Yorumu Gönder
+                    </Button>
                 </Form>
             </Modal>
-        </>
-
-
+        </div>
     );
 };
 
