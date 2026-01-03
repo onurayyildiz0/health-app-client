@@ -104,7 +104,6 @@ const DoctorDetail = () => {
             }
         };
         fetchData();
-        // eslint-disable-next-line
     }, [id, dispatch]);
 
     // Favori İşlemi
@@ -139,7 +138,7 @@ const DoctorDetail = () => {
             const revRes = await reviewService.getReviewsByDoctor(id);
             dispatch(fetchDoctorReviewsSuccess(revRes.data || revRes));
         } catch (err) {
-            message.error(err.response?.data?.message || 'Yorum eklenemedi');
+            message.error(err.message || 'Yorum eklenemedi');
         } finally {
             setSubmitting(false);
         }
@@ -156,7 +155,6 @@ const DoctorDetail = () => {
         if (typeof doctor.speciality === 'string' && isNaN(doctor.speciality)) return doctor.speciality;
         // 4. Speciality ID ise ve listemiz varsa eşleştir
         if (specialities.length > 0) {
-            // eslint-disable-next-line
             const found = specialities.find(s => s.id == doctor.speciality);
             if (found) return found.name;
         }
@@ -237,7 +235,8 @@ const DoctorDetail = () => {
                                     </div>
 
                                     <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-6">
-                                        {doctor.hospital && <Tag icon={<EnvironmentOutlined />} color="cyan">{doctor.hospital}</Tag>}
+                                        {doctor.hospital ? <Tag icon={<EnvironmentOutlined />} color="cyan">{doctor.hospital}</Tag> :
+                                        <Tag icon={<EnvironmentOutlined />} color="cyan">Klinik belirtilmemiş</Tag>}
                                         <Tag icon={<MedicineBoxOutlined />} color="purple">{doctor.experience ? `${doctor.experience} Yıl Deneyim` : 'Deneyim belirtilmemiş'}</Tag>
                                     </div>
 
@@ -305,7 +304,8 @@ const DoctorDetail = () => {
                                             <Descriptions.Item label={<span className="text-gray-500 font-medium text-xs uppercase tracking-wide mt-4 block">Konum</span>}>
                                                 <span className="flex items-start gap-2 text-gray-700">
                                                     <EnvironmentOutlined className="text-red-500 mt-1" />
-                                                    <span className="text-sm font-medium">{doctor.location || 'Konum Bilgisi Yok'}</span>
+                                                    {/* GÜNCELLEME: fullLocation kullanımı */}
+                                                    <span className="text-sm font-medium">{doctor.fullLocation || doctor.location || 'Konum Bilgisi Yok'}</span>
                                                 </span>
                                             </Descriptions.Item>
 

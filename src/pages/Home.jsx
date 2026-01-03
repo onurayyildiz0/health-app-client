@@ -1,14 +1,14 @@
-import { Card, Row, Col, Typography, Avatar, Badge, Statistic, Button } from 'antd';
+import { Card, Row, Col, Typography, Avatar, Statistic, Button, Tag, Rate } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     CalendarOutlined,
     TeamOutlined,
     SafetyCertificateOutlined,
     ClockCircleOutlined,
-    StarFilled,
     UserOutlined,
     HeartOutlined,
-    ArrowRightOutlined
+    ArrowRightOutlined,
+    EnvironmentOutlined
 } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -63,11 +63,6 @@ const Home = () => {
                     <div className='container mx-auto px-6 relative z-10'>
                         <Row gutter={[48, 48]} align="middle">
                             <Col xs={24} lg={12} className="text-center lg:text-left">
-                                <Badge.Ribbon text="Yeni Özellik" color="green" className="top-[-10px]">
-                                    <div className='inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full mb-6 border border-white/30'>
-                                        <Text className='text-white font-medium'>🎉 Online Görüntülü Görüşme Yayında</Text>
-                                    </div>
-                                </Badge.Ribbon>
                                 <Title className='!text-white !text-4xl md:!text-5xl lg:!text-6xl font-extrabold tracking-tight leading-tight mb-6'>
                                     Sağlığınız İçin <br />
                                     <span className='text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-400'>
@@ -127,22 +122,47 @@ const Home = () => {
                             <Title level={2} className='mt-2 mb-4'>Öne Çıkan Doktorlarımız</Title>
                             <Paragraph className='text-gray-500 text-lg'>Sizler için seçtiğimiz, en yüksek puan alan uzmanlarımız.</Paragraph>
                         </div>
-                        
+
                         <Row gutter={[32, 32]}>
                             {loadingDoctors ? (
                                 <Col span={24} className="text-center py-10">Yükleniyor...</Col>
                             ) : topDoctors.map((doc) => (
                                 <Col xs={24} md={12} lg={8} key={doc._id || doc.id}>
-                                    <Card hoverable className='h-full border border-gray-100 shadow-md hover:shadow-xl transition-all rounded-2xl overflow-hidden' bodyStyle={{ padding: 0 }}>
-                                        <div className='p-8 flex flex-col items-center bg-gradient-to-b from-blue-50/50 to-transparent'>
-                                            <Avatar size={120} src={doc.user?.avatar} icon={<UserOutlined />} className='mb-4 shadow-lg border-4 border-white' />
-                                            <Title level={4} className='!mb-1 text-center'>{doc.name || doc.user?.name}</Title>
-                                            <Text type="secondary" className='mb-3 font-medium text-blue-500'>{doc.speciality}</Text>
-                                            <div className='flex gap-4 text-gray-600 text-sm bg-white px-4 py-2 rounded-full shadow-sm'>
-                                                <span className='flex items-center gap-1'><StarFilled className='text-yellow-400' /> {doc.rating || '0'}</span>
-                                                <span className='w-px h-4 bg-gray-300'></span>
-                                                <span>{doc.reviewCount || 0} Görüş</span>
+                                    <Card
+                                        hoverable
+                                        className="h-full border-0 shadow-md hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden group"
+                                        bodyStyle={{ padding: 0 }}
+                                    >
+                                        <div className="p-6 text-center bg-white group-hover:bg-blue-50 transition-colors duration-300">
+                                            <Avatar
+                                                size={100}
+                                                src={doc.user?.avatar}
+                                                className="mb-4 shadow-md border-4 border-white"
+                                                icon={<UserOutlined />}
+                                            />
+                                            <Title level={4} className="mb-1 !text-gray-800">{doc.user?.name || 'Doktor'}</Title>
+                                            <Tag color="blue" className="mb-3 rounded-full border-0">{doc.specialityNavigation?.name || 'Uzmanlık Belirtilmedi'}</Tag>
+                                            <div className='flex justify-center my-2'>
+                                                <Rate disabled defaultValue={doc.rating || 0} className='text-sm text-yellow-400' />
                                             </div>
+                                        </div>
+                                        <div className="px-6 pb-6 bg-white group-hover:bg-blue-50 transition-colors duration-300">
+                                            {(doc.fullLocation || doc.location) && (
+                                                <div className="flex items-center justify-center gap-2 text-gray-500 text-sm mb-4">
+                                                    <EnvironmentOutlined />
+                                                    <span className="text-wrap truncate max-w-[200px]">{doc.fullLocation || doc.location}</span>
+                                                </div>
+                                            )}
+                                            <Button
+                                                type="primary"
+                                                block
+                                                size="large"
+                                                className="rounded-xl font-semibold shadow-blue-200 shadow-lg"
+                                                icon={<CalendarOutlined />}
+                                                onClick={() => navigate('/login')}
+                                            >
+                                                Randevu Al
+                                            </Button>
                                         </div>
                                     </Card>
                                 </Col>

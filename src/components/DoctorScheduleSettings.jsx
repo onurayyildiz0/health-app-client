@@ -40,7 +40,6 @@ const emptyClocks = days.reduce((acc, day) => {
 export default function DoctorScheduleSettings() {
     // State Tanımları
     const [clocks, setClocks] = useState(emptyClocks);
-    const [location, setLocation] = useState('');
     const [consultationFee, setConsultationFee] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -58,9 +57,6 @@ export default function DoctorScheduleSettings() {
                 if (!doctorData) {
                     throw new Error("Veri formatı hatalı");
                 }
-
-                // --- Lokasyon ---
-                setLocation(doctorData.location || '');
 
                 // --- Ücret ---
                 if (doctorData.consultationFee !== undefined && doctorData.consultationFee !== null) {
@@ -142,7 +138,6 @@ export default function DoctorScheduleSettings() {
             
             const payload = {
                 clocks: clocks,
-                location: location,
                 consultationFee: consultationFee
             };
 
@@ -217,28 +212,6 @@ export default function DoctorScheduleSettings() {
                                 <Text type="secondary" className="text-xs mt-1 block">
                                     * Hastalarınız randevu alırken bu ücreti görüntüleyecektir.
                                 </Text>
-                            </div>
-
-                            {/* Lokasyon */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Klinik / Hastane Adresi
-                                </label>
-                                <TextArea
-                                    prefix={<EnvironmentOutlined />}
-                                    value={location}
-                                    onChange={(e) => setLocation(e.target.value)}
-                                    placeholder="Örn: Ankara Şehir Hastanesi, Kat 3, No: 302..."
-                                    autoSize={{ minRows: 4, maxRows: 6 }}
-                                    className="rounded-lg"
-                                />
-                            </div>
-
-                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                                <Title level={5} className="!text-blue-700 !mb-2 !text-sm">İpucu</Title>
-                                <Paragraph className="text-blue-600 text-xs mb-0">
-                                    Adresinizi detaylı girmek, hastalarınızın size daha kolay ulaşmasını sağlar. 
-                                </Paragraph>
                             </div>
                         </div>
                     </Card>

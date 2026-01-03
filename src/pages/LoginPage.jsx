@@ -24,7 +24,7 @@ const LoginPage = () => {
                 navigate(role === 'admin' ? '/dashboard/admin' : role === 'doctor' ? '/dashboard/doctor' : '/dashboard/patient');
             }, 1500);
         } catch (error) {
-            const msg = error.response?.data?.message || 'Giriş yapılamadı.';
+            const msg = error.message || 'Giriş yapılamadı.';
             dispatch(loginFailure(msg));
             message.error(msg);
         } finally { setSubmitting(false); }
@@ -45,8 +45,7 @@ const LoginPage = () => {
 
                 <Card className='shadow-2xl border-0 rounded-3xl bg-white/80 backdrop-blur-xl' styles={{ body: { padding: '2.5rem' } }}>
                     <h2 className='text-xl font-bold text-gray-800 mb-6 text-center'>Hoş Geldiniz</h2>
-                    {error && <Alert message={error} type="error" showIcon closable className='mb-6 rounded-xl' />}
-
+                    
                     <Formik initialValues={{ email: '', password: '' }} validationSchema={LoginSchema} onSubmit={handleLogin}>
                         {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
                             <Form onFinish={handleSubmit} layout="vertical">

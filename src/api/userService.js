@@ -143,6 +143,17 @@ export const deleteAccount = async () => {
     return response.data;
 };
 
+// Mevcut importların altına:
+
+/**
+ * KİMLİK DOĞRULAMA (TC Kontrolü)
+ * * Backend Endpoint: POST /api/user/verify-identity
+ */
+export const verifyIdentity = async (tc) => {
+    const response = await axiosInstance.post('/user/verify-identity', { tc });
+    return response.data;
+};
+
 export default {
     getMyProfile,
     updateProfile,
@@ -155,5 +166,6 @@ export default {
     removeFavoriteDoctor,
     getFavoriteDoctors,
     deleteAccount,
-    getHealthHistory
+    getHealthHistory,
+    verifyIdentity
 };

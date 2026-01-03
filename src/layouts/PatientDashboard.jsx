@@ -16,6 +16,7 @@ import dayjs from 'dayjs';
 import { fetchMyAppointments, selectAllAppointments, selectAppointmentLoading } from '../store/slices/appointmentSlice';
 import { fetchFavoriteDoctors, selectFavoriteDoctors, selectUserLoading } from '../store/slices/userSlice';
 import { selectUser } from '../store/slices/authSlice';
+import specialityService from '../api/specialityService'; // EKLENDİ
 
 const { Title, Text } = Typography;
 
@@ -31,6 +32,7 @@ const PatientDashboard = () => {
 
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [specialities, setSpecialities] = useState([]); // EKLENDİ: Uzmanlık listesi state'i
 
     const [stats, setStats] = useState({
         totalAppointments: 0,
@@ -41,20 +43,52 @@ const PatientDashboard = () => {
 
     useEffect(() => {
         let isMounted = true;
+        
         const loadData = async () => {
-            if (isMounted && (!appointments || appointments.length === 0)) {
-                await dispatch(fetchMyAppointments()).catch(() => { });
+            if (isMounted) {
+                // 1. Randevuları Yükle
+                if (!appointments || appointments.length === 0) {
+                    await dispatch(fetchMyAppointments()).catch(() => { });
+                }
+                
+                // 2. Uzmanlıkları Yükle (YENİ)
+                try {
+                    const specRes = await specialityService.getAllSpecialities();
+                    if(isMounted) setSpecialities(specRes.data || specRes || []);
+                } catch (err) {
+                    console.error("Uzmanlıklar yüklenirken hata", err);
+                }
             }
-            // Favorilerin yüklenmesini biraz geciktirerek UI takılmasını önle
+
+            // 3. Favorileri Yükle
             setTimeout(() => {
                 if (isMounted) {
                     dispatch(fetchFavoriteDoctors()).catch(() => { });
                 }
             }, 1000);
         };
+
         loadData();
         return () => { isMounted = false; };
-    }, [dispatch]); // dependencies array düzeltildi
+        // eslint-disable-next-line
+    }, [dispatch]); 
+
+    // YARDIMCI FONKSİYON: Uzmanlık İsmini Bul
+    const getSpecialityName = (doctor) => {
+        if (!doctor) return '';
+        // 1. Backend Navigation Property gönderdiyse
+        if (doctor.specialityNavigation?.name) return doctor.specialityNavigation.name;
+        // 2. Speciality zaten obje olarak geldiyse
+        if (typeof doctor.speciality === 'object' && doctor.speciality?.name) return doctor.speciality.name;
+        // 3. Speciality ID ise ve listemiz varsa eşleştir
+        if (specialities.length > 0) {
+            // eslint-disable-next-line
+            const found = specialities.find(s => s.id == doctor.speciality);
+            if (found) return found.name;
+        }
+        // 4. Fallback (String gelmişse veya bulunamazsa)
+        return doctor.speciality;
+    };
 
     useEffect(() => {
         if (appointments?.length > 0) {
@@ -104,7 +138,8 @@ const PatientDashboard = () => {
                     <Avatar src={doctor?.user?.avatar} icon={<UserOutlined />} />
                     <div>
                         <div className="font-medium text-gray-800">Dr. {doctor?.user?.name}</div>
-                        <div className="text-xs text-gray-500">{doctor?.speciality}</div>
+                        {/* GÜNCELLENDİ: Helper fonksiyon kullanıldı */}
+                        <div className="text-xs text-gray-500">{getSpecialityName(doctor)}</div>
                     </div>
                 </div>
             )
@@ -225,7 +260,6 @@ const PatientDashboard = () => {
                         ) : todayAppointments.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {todayAppointments.map(app => (
-                                    // DÜZELTME BURADA YAPILDI: key={app.id || app._id}
                                     <Card 
                                         key={app.id || app._id} 
                                         className="border-0 shadow-sm rounded-2xl hover:shadow-md transition-all bg-blue-600 text-white"
@@ -234,8 +268,9 @@ const PatientDashboard = () => {
                                             <Avatar size={54} src={app.doctor?.user?.avatar} className="border-2 border-white/30" icon={<UserOutlined />} />
                                             <div className="flex-1">
                                                 <div className="font-bold text-lg">Dr. {app.doctor?.user?.name}</div>
-                                                <div className="text-gray-700 text-sm">{app.doctor?.location}</div>
-                                                <div className="text-blue-400 text-sm">{app.doctor?.speciality}</div>
+                                                {/* GÜNCELLEME: fullLocation kullanımı */}
+                                                <div className="text-gray-200 text-sm">{app.doctor?.fullLocation || app.doctor?.location}</div>
+                                                <div className="text-blue-200 text-sm">{getSpecialityName(app.doctor)}</div>
                                                 <div className="mt-2 inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-lg">
                                                     <ClockCircleOutlined /> <span>{app.start.slice(0, 5)} - {app.end.slice(0, 5)}</span>
                                                 </div>
@@ -264,7 +299,6 @@ const PatientDashboard = () => {
                         <Table
                             columns={columns}
                             dataSource={upcomingAppointments}
-                            // DÜZELTME BURADA YAPILDI: rowKey={(record) => record.id || record._id}
                             rowKey={(record) => record.id || record._id}
                             pagination={false}
                             loading={appointmentLoading}
@@ -295,7 +329,8 @@ const PatientDashboard = () => {
                                         <Avatar size={48} src={doc.user?.avatar} icon={<UserOutlined />} />
                                         <div className="flex-1 min-w-0">
                                             <div className="font-semibold text-gray-800 truncate">Dr. {doc.user?.name}</div>
-                                            <div className="text-xs text-gray-500 truncate">{doc.speciality}</div>
+                                            {/* GÜNCELLENDİ: Helper fonksiyon kullanıldı */}
+                                            <div className="text-xs text-gray-500 truncate">{getSpecialityName(doc)}</div>
                                         </div>
                                         <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg">
                                             <StarFilled className="text-yellow-400 text-xs" />
@@ -324,7 +359,8 @@ const PatientDashboard = () => {
                     <div className="flex flex-col items-center p-4">
                         <Avatar size={80} src={selectedAppointment.doctor?.user?.avatar} icon={<UserOutlined />} className="mb-3 border-2 border-blue-100" />
                         <Title level={4} className="!mb-0">Dr. {selectedAppointment.doctor?.user?.name}</Title>
-                        <Text type="secondary" className="mb-6">{selectedAppointment.doctor?.speciality}</Text>
+                        {/* GÜNCELLENDİ: Helper fonksiyon kullanıldı */}
+                        <Text type="secondary" className="mb-6">{getSpecialityName(selectedAppointment.doctor)}</Text>
                         
                         <div className="w-full bg-gray-50 rounded-xl p-4 space-y-3">
                             <div className="flex justify-between border-b pb-2 border-gray-200">

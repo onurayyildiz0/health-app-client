@@ -57,16 +57,16 @@ const Doctors = () => {
                                                     icon={<UserOutlined />}
                                                 />
                                                 <Title level={4} className="!mb-1 !text-gray-800">{doctor.user?.name || 'Doktor'}</Title>
-                                                <Tag color="blue" className="mb-3 rounded-full border-0">{doctor.speciality}</Tag>
+                                                <Tag color="blue" className="mb-3 rounded-full border-0">{doctor.specialityNavigation.name}</Tag>
                                                 <div className='flex justify-center mb-1'>
-                                                    <Rate disabled defaultValue={doctor.rating || 5} className='text-sm text-yellow-400' />
+                                                    <Rate disabled defaultValue={doctor.rating || 0} className='text-sm text-yellow-400' />
                                                 </div>
                                             </div>
                                             <div className="px-6 pb-6 bg-white group-hover:bg-blue-50 transition-colors duration-300">
-                                                {doctor.location && (
+                                                {doctor.fullLocation && (
                                                     <div className="flex items-center justify-center gap-2 text-gray-500 text-sm mb-4">
                                                         <EnvironmentOutlined />
-                                                        <span className="truncate max-w-[200px]">{doctor.location}</span>
+                                                        <span className="text-wrap truncate max-w-[200px]">{doctor.fullLocation}</span>
                                                     </div>
                                                 )}
                                                 <Button

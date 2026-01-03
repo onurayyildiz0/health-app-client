@@ -54,8 +54,8 @@ export default function DoctorTimeOff() {
             const endDate = values.dates[1];
             const diffDays = endDate.diff(startDate, 'day');
             
-            if (diffDays > 30) {
-                message.error("İzin süresi en fazla 1 ay (30 gün) olabilir.");
+            if (diffDays > 90) {
+                message.error("İzin süresi en fazla 3 ay (90 gün) olabilir.");
                 return;
             }
 

@@ -144,7 +144,7 @@ const UserManagement = () => {
             link.parentNode.removeChild(link);
             window.URL.revokeObjectURL(url);
         } catch (error) {
-            console.error("Belge hatası:", error);
+            console.error("Belge hatası:", error.message);
             message.error('Belge indirilemedi. Dosya mevcut olmayabilir.');
         }
     };
@@ -171,7 +171,7 @@ const UserManagement = () => {
             setEditingUser(null);
             fetchUsers(selectedRole); // Listeyi yenile
         } catch (error) {
-            message.error(error.response?.data?.message || 'Rol güncellenemedi');
+            message.error(error.message || 'Rol güncellenemedi');
         }
     };
 

@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
-    Card, Form, Input, Button, Avatar, Upload, message, Divider, Typography, Space
+    Card, Form, Input, Button, Avatar, Upload, message, Divider, Typography, Space, Modal
 } from 'antd';
 import {
-    UserOutlined, MailOutlined, UploadOutlined, SaveOutlined
+    UserOutlined, MailOutlined, UploadOutlined, SaveOutlined, SafetyCertificateOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import {
     updateProfileStart, updateProfileSuccess, updateProfileFailure,
-    selectUserLoading, selectUserSuccessMessage
+    selectUserLoading
 } from '../../store/slices/userSlice';
 import { selectUser, loginSuccess } from '../../store/slices/authSlice';
 import * as userService from '../../api/userService';
+
+// userService.js dosyasından named export olarak verifyIdentity'i de alalım 
+// Eğer default export kullanıyorsanız userService.verifyIdentity şeklinde aşağıda kullanacağız.
 
 const { Title, Text } = Typography;
 
@@ -19,16 +22,21 @@ const ProfileSettings = () => {
     const dispatch = useDispatch();
     const user = useSelector(selectUser);
     const loading = useSelector(selectUserLoading);
-    const successMessage = useSelector(selectUserSuccessMessage);
 
     const [profileForm] = Form.useForm();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar);
+
+    // --- YENİ STATE'LER ---
+    const [isModalOpen, setIsModalOpen] = useState(false); // Modal görünürlüğü
+    const [pendingValues, setPendingValues] = useState(null); // Form verilerini bekletmek için
+    const [tcInput, setTcInput] = useState(""); // Modal içindeki input
+    const [verifying, setVerifying] = useState(false); // Modal loading durumu
 
     useEffect(() => {
         if (user) {
             profileForm.setFieldsValue({
                 name: user.name,
-                email: user.email // Form'a mevcut emaili yükle
+                email: user.email 
             });
             if (user.avatar !== undefined) {
                 setAvatarUrl(user.avatar);
@@ -36,13 +44,20 @@ const ProfileSettings = () => {
         }
     }, [user, profileForm]);
 
-    useEffect(() => {
-        if (successMessage) {
-            message.success(successMessage);
+    // Form Submit Butonuna Basıldığında Çalışır
+    const onFinish = (values) => {
+        // Eğer email değişmişse güvenlik kontrolü yap
+        if (user.email !== values.email) {
+            setPendingValues(values); // Verileri hafızaya al
+            setIsModalOpen(true);     // Modalı aç
+        } else {
+            // Email değişmediyse direkt güncelle
+            performUpdate(values);
         }
-    }, [successMessage]);
+    };
 
-    const handleUpdateProfile = async (values) => {
+    // Asıl güncelleme işlemini yapan fonksiyon
+    const performUpdate = async (values) => {
         try {
             dispatch(updateProfileStart());
 
@@ -55,48 +70,64 @@ const ProfileSettings = () => {
             const userData = response.user || response.data?.user || response.data || response;
             const msg = response.message || response.data?.message;
 
-            // Redux store güncelle (Sadece isim ve avatar anında değişir, email değişmez)
             dispatch(updateProfileSuccess(userData));
+            
             dispatch(loginSuccess({
                 user: userData,
                 token: localStorage.getItem('token')
             }));
 
-            // Eğer email değişikliği isteği varsa farklı mesaj göster
             if (values.email !== user.email) {
-                message.info(msg, 6); // "Doğrulama linki gönderildi" mesajı
-                // Email inputunu eski haline getir (çünkü henüz değişmedi)
+                message.info(msg || 'Lütfen yeni e-posta adresinize gönderilen doğrulama bağlantısına tıklayın.', 6);
+                // Formu eski mail'e resetle (çünkü henüz doğrulanmadı)
                 profileForm.setFieldsValue({ email: user.email });
             } else {
-                message.success('Profil güncellendi!');
+                message.success('Profil başarıyla güncellendi!');
                 setAvatarUrl(userData.avatar);
             }
         } catch (err) {
-            // Backend'den gelen "Email kullanımda" hatası burada yakalanır
             const errorMsg = err.response?.data?.message || err.message || 'Profil güncellenemedi';
             dispatch(updateProfileFailure(errorMsg));
             message.error(errorMsg);
+        } finally {
+            // Temizlik
+            setIsModalOpen(false);
+            setPendingValues(null);
+            setTcInput("");
         }
     };
 
+    // Modal içindeki "Doğrula ve Güncelle" butonu
+    const handleVerifyAndSave = async () => {
+        if (!tcInput) {
+            message.warning("Lütfen TC Kimlik Numaranızı girin.");
+            return;
+        }
+
+        setVerifying(true);
+        try {
+            // 1. Önce TC Doğrula
+            // Not: userService'i import * as userService olarak aldıysanız:
+            await userService.verifyIdentity(tcInput); 
+            
+            // 2. Başarılı ise bekleyen güncelleme işlemini yap
+            message.success("Kimlik doğrulandı, profil güncelleniyor...");
+            await performUpdate(pendingValues);
+
+        } catch (error) {
+            message.error(error.response?.data?.message || "Kimlik doğrulanamadı.");
+        } finally {
+            setVerifying(false);
+        }
+    };
+
+    // ... Avatar yükleme kodları (Aynı kalacak) ...
     const handleAvatarChange = (info) => {
+        if (info.file.status === 'uploading') return;
         const file = info.file.originFileObj || info.file;
         if (file) {
-            const isImage = file.type?.startsWith('image/');
-            if (!isImage) {
-                message.error('Sadece resim dosyaları yükleyebilirsiniz!');
-                return;
-            }
-            const isLt2M = file.size / 1024 / 1024 < 2;
-            if (!isLt2M) {
-                message.error('Resim boyutu 2MB\'dan küçük olmalıdır!');
-                return;
-            }
             const reader = new FileReader();
-            reader.onload = (e) => {
-                setAvatarUrl(e.target.result);
-                message.success('Avatar önizlemesi yüklendi (kaydetmek için butona basınız)');
-            };
+            reader.onload = (e) => setAvatarUrl(e.target.result);
             reader.readAsDataURL(file);
         }
     };
@@ -105,14 +136,14 @@ const ProfileSettings = () => {
         const isImage = file.type?.startsWith('image/');
         if (!isImage) {
             message.error('Sadece resim dosyaları yükleyebilirsiniz!');
-            return false;
+            return Upload.LIST_IGNORE;
         }
         const isLt2M = file.size / 1024 / 1024 < 2;
         if (!isLt2M) {
             message.error('Resim boyutu 2MB\'dan küçük olmalıdır!');
-            return false;
+            return Upload.LIST_IGNORE;
         }
-        return false;
+        return false; 
     };
 
     return (
@@ -147,7 +178,7 @@ const ProfileSettings = () => {
                 <Form
                     form={profileForm}
                     layout="vertical"
-                    onFinish={handleUpdateProfile}
+                    onFinish={onFinish} // handleUpdateProfile yerine onFinish kullanıyoruz
                 >
                     <Form.Item
                         label="Ad Soyad"
@@ -160,10 +191,10 @@ const ProfileSettings = () => {
                         <Input prefix={<UserOutlined />} placeholder="Ad Soyad" size="large" />
                     </Form.Item>
 
-                    {/* BURADA DEĞİŞİKLİK YAPILDI: disabled kaldırıldı ve kurallar eklendi */}
                     <Form.Item
                         label="E-posta"
                         name="email"
+                        extra="E-posta adresinizi değiştirirseniz güvenlik gereği TC doğrulaması istenecektir."
                         rules={[
                             { required: true, message: 'Lütfen email adresinizi girin' },
                             { type: 'email', message: 'Geçerli bir email adresi girin' }
@@ -173,7 +204,6 @@ const ProfileSettings = () => {
                             prefix={<MailOutlined />}
                             placeholder="E-posta"
                             size="large"
-                        // disabled  <-- Bu satır kaldırıldı
                         />
                     </Form.Item>
 
@@ -192,6 +222,41 @@ const ProfileSettings = () => {
                     </Form.Item>
                 </Form>
             </Card>
+
+            {/* --- TC DOĞRULAMA MODALI --- */}
+            <Modal
+                title={
+                    <div className="flex items-center gap-2 text-orange-600">
+                        <SafetyCertificateOutlined />
+                        <span>Güvenlik Doğrulaması</span>
+                    </div>
+                }
+                open={isModalOpen}
+                onOk={handleVerifyAndSave}
+                onCancel={() => {
+                    setIsModalOpen(false);
+                    setPendingValues(null);
+                    setTcInput("");
+                }}
+                confirmLoading={verifying}
+                okText="Doğrula ve Güncelle"
+                cancelText="İptal"
+            >
+                <p className="mb-4">
+                    E-posta adresinizi değiştirmek üzeresiniz. Güvenliğiniz için lütfen 
+                    <b> TC Kimlik Numaranızı</b> girerek işlemi onaylayın.
+                </p>
+                <Input
+                    placeholder="TC Kimlik Numaranız"
+                    maxLength={11}
+                    value={tcInput}
+                    onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        setTcInput(val);
+                    }}
+                    prefix={<UserOutlined />}
+                />
+            </Modal>
         </div>
     );
 };

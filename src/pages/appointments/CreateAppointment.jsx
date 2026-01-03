@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Card, Select, DatePicker, Input, Alert, message, ConfigProvider, Avatar, Modal, Button, Tag, Divider, Typography } from 'antd';
+import { Card, Select, DatePicker, Input, Alert, message, ConfigProvider, Avatar, Modal, Button, Tag, Divider, Typography, InputNumber, Space } from 'antd';
 import { 
     MedicineBoxOutlined, SearchOutlined, EnvironmentOutlined, 
-    UserOutlined, DollarOutlined, ScheduleOutlined
+    UserOutlined, DollarOutlined, ScheduleOutlined, ClearOutlined
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -12,9 +12,13 @@ import isBetween from 'dayjs/plugin/isBetween';
 import tr_TR from 'antd/locale/tr_TR';
 import * as appointmentService from '../../api/appointmentService';
 import axiosInstance from '../../api/axios';
-import specialityService from '../../api/specialityService'; // Eklendi
+import specialityService from '../../api/specialityService';
+import locationService from '../../api/locationService'; // EKLENDİ
 import { createAppointmentSchema } from '../../validations/AppointmentValidations';
 import { selectAppointmentLoading, selectAppointmentError } from '../../store/slices/appointmentSlice';
+import 'dayjs/locale/tr';
+
+dayjs.locale('tr');
 
 dayjs.extend(isBetween);
 const { TextArea } = Input;
@@ -29,13 +33,28 @@ const CreateAppointment = () => {
     const error = useSelector(selectAppointmentError);
 
     const [doctors, setDoctors] = useState([]);
-    const [specialities, setSpecialities] = useState([]); // Uzmanlık Listesi
+    const [specialities, setSpecialities] = useState([]); 
     const [loadingDoctors, setLoadingDoctors] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedSpeciality, setSelectedSpeciality] = useState(null); // ID olacak
-    const [selectedLocation, setSelectedLocation] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     
+    // --- FİLTRE STATE'LERİ ---
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedSpeciality, setSelectedSpeciality] = useState(null); 
+    
+    // Lokasyon Filtreleri
+    const [provinces, setProvinces] = useState([]);
+    const [districts, setDistricts] = useState([]);
+    const [neighborhoods, setNeighborhoods] = useState([]);
+    
+    const [filterProvince, setFilterProvince] = useState(null);     // İsim olarak tutuyoruz
+    const [filterDistrict, setFilterDistrict] = useState(null);     // İsim olarak tutuyoruz
+    const [filterNeighborhood, setFilterNeighborhood] = useState(null); // İsim olarak tutuyoruz
+    
+    // Fiyat Filtreleri
+    const [minPrice, setMinPrice] = useState(null);
+    const [maxPrice, setMaxPrice] = useState(null);
+    // -------------------------
+
     // Formik için başlangıç değerleri
     const initialValues = { 
         doctor: preSelectedDoctorId ? parseInt(preSelectedDoctorId) : '', 
@@ -49,44 +68,107 @@ const CreateAppointment = () => {
         const fetchInitialData = async () => {
             try {
                 setLoadingDoctors(true);
-                // Paralel veri çekme
-                const [docRes, specRes] = await Promise.all([
+                // Paralel veri çekme: Doktorlar, Uzmanlıklar ve İller
+                const [docRes, specRes, provRes] = await Promise.all([
                     axiosInstance.get('/doctors'),
-                    specialityService.getAllSpecialities()
+                    specialityService.getAllSpecialities(),
+                    locationService.getAllProvinces() // İlleri çek
                 ]);
 
                 setSpecialities(specRes.data || specRes || []);
+                setProvinces(provRes.data || []);
 
                 const rawDoctors = docRes.data?.data?.doctors || [];
                 const processedDoctors = rawDoctors.map(doc => {
+                    // 1. Clocks Parse
                     let parsedClocks = {};
                     if (doc.clocks && typeof doc.clocks === 'string') {
-                        try {
-                            parsedClocks = JSON.parse(doc.clocks);
-                        } catch (e) {
-                            console.error("Saat verisi parse edilemedi", e);
-                        }
+                        try { parsedClocks = JSON.parse(doc.clocks); } catch (e) { console.error("Saat hatası", e); }
                     } else if (typeof doc.clocks === 'object') {
                         parsedClocks = doc.clocks;
+                    }
+
+                    // 2. UnavailableDates Parse
+                    let parsedUnavailableDates = [];
+                    if (doc.unavailableDates) {
+                        try {
+                            const rawDates = typeof doc.unavailableDates === 'string' 
+                                ? JSON.parse(doc.unavailableDates) 
+                                : doc.unavailableDates;
+                            
+                            if (Array.isArray(rawDates)) {
+                                parsedUnavailableDates = rawDates.map(d => ({
+                                    startDate: d.startDate || d.StartDate, 
+                                    endDate: d.endDate || d.EndDate,
+                                    reason: d.reason || d.Reason
+                                }));
+                            }
+                        } catch (e) { console.error("Tarih hatası", e); }
                     }
 
                     return {
                         ...doc,
                         clocks: parsedClocks,
-                        unavailableDates: doc.unavailableDates || []
+                        unavailableDates: parsedUnavailableDates
                     };
                 });
 
                 setDoctors(processedDoctors);
             } catch (err) {
-                console.error(err);
-                message.error('Veriler yüklenirken hata oluştu');
+                message.error(err.message || 'Veriler yüklenirken hata oluştu');
             } finally {
                 setLoadingDoctors(false);
             }
         };
         fetchInitialData();
     }, []);
+
+    // --- LOKASYON DEĞİŞİM HANDLERLARI ---
+    const handleProvinceChange = async (val, option) => {
+        setFilterProvince(option ? option.children : null); // İsmi kaydet
+        setFilterDistrict(null);
+        setFilterNeighborhood(null);
+        setDistricts([]);
+        setNeighborhoods([]);
+
+        if (val) {
+            try {
+                const res = await locationService.getProvinceDetails(val); // ID ile ilçeleri çek
+                setDistricts(res.data.districts || []);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    };
+
+    const handleDistrictChange = async (val, option) => {
+        setFilterDistrict(option ? option.children : null);
+        setFilterNeighborhood(null);
+        setNeighborhoods([]);
+
+        if (val) {
+            try {
+                const res = await locationService.getNeighborhoodsByDistrict(val); // ID ile mahalleleri çek
+                setNeighborhoods(res.data || []);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    };
+
+    const handleClearFilters = (setFieldValue) => {
+        setSearchTerm('');
+        setSelectedSpeciality(null);
+        setFilterProvince(null);
+        setFilterDistrict(null);
+        setFilterNeighborhood(null);
+        setMinPrice(null);
+        setMaxPrice(null);
+        setDistricts([]);
+        setNeighborhoods([]);
+        setFieldValue('doctor', ''); // Form seçimini de sıfırla
+    };
+    // ------------------------------------
 
     const handleSubmit = async (values) => {
         const selectedDoctor = doctors.find(d => d.id === values.doctor);
@@ -127,7 +209,6 @@ const CreateAppointment = () => {
     const weekOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
-    // Helper: Doktorun uzmanlık adını bulma (ID veya obje olabilir)
     const getDocSpecialityName = (doc) => {
         if (doc.specialityNavigation?.name) return doc.specialityNavigation.name;
         if (typeof doc.speciality === 'object' && doc.speciality?.name) return doc.speciality.name;
@@ -154,16 +235,29 @@ const CreateAppointment = () => {
                 >
                     {({ values, errors, touched, setFieldValue, submitForm }) => {
                         
+                        // --- FİLTRELEME MANTIĞI ---
                         const filteredDoctors = doctors.filter(doctor => {
+                            // 1. İsim Arama
                             const matchesSearch = !searchTerm || doctor.user?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-                            // Speciality ID veya Obje kontrolü
+                            
+                            // 2. Branş
                             let matchesSpeciality = true;
                             if (selectedSpeciality) {
                                 const docSpecId = typeof doctor.speciality === 'object' ? doctor.speciality.id : doctor.speciality;
                                 matchesSpeciality = docSpecId === selectedSpeciality;
                             }
-                            const matchesLocation = !selectedLocation || doctor.location === selectedLocation;
-                            return matchesSearch && matchesSpeciality && matchesLocation;
+
+                            // 3. Lokasyon (Backend string olarak dönüyor, biz de isim olarak filtreliyoruz)
+                            const matchesProvince = !filterProvince || doctor.province === filterProvince;
+                            const matchesDistrict = !filterDistrict || doctor.district === filterDistrict;
+                            const matchesNeighborhood = !filterNeighborhood || doctor.neighborhood === filterNeighborhood;
+
+                            // 4. Fiyat
+                            const fee = doctor.consultationFee || 0;
+                            const matchesMinPrice = minPrice === null || fee >= minPrice;
+                            const matchesMaxPrice = maxPrice === null || fee <= maxPrice;
+
+                            return matchesSearch && matchesSpeciality && matchesProvince && matchesDistrict && matchesNeighborhood && matchesMinPrice && matchesMaxPrice;
                         });
 
                         const selectedDoctorData = doctors.find(d => d.id === values.doctor);
@@ -196,9 +290,14 @@ const CreateAppointment = () => {
                                         {error && <Alert message={error} type="error" closable className="mb-4" />}
                                         
                                         <Form className="p-2 space-y-6">
-                                            {/* Filtreler */}
+                                            {/* --- FİLTRELER BÖLÜMÜ --- */}
                                             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-xs font-bold text-gray-500 uppercase">Doktor Filtrele</span>
+                                                    <Button type="text" size="small" icon={<ClearOutlined/>} onClick={() => handleClearFilters(setFieldValue)} className="text-gray-500 text-xs">Temizle</Button>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                                                     <Input
                                                         prefix={<SearchOutlined className="text-gray-400" />}
                                                         placeholder="Doktor ara..."
@@ -207,25 +306,91 @@ const CreateAppointment = () => {
                                                         className="rounded-lg"
                                                     />
                                                     <Select
-                                                        placeholder="Branş Filtrele"
+                                                        placeholder="Branş Seçin"
                                                         allowClear
                                                         className="w-full rounded-lg"
                                                         value={selectedSpeciality || undefined}
                                                         onChange={(val) => { setSelectedSpeciality(val); setFieldValue('doctor', ''); }}
                                                         showSearch
-                                                        filterOption={(input, option) =>
-                                                            option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                                                        }
+                                                        filterOption={(input, option) => option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
                                                     >
                                                         {specialities.map(s => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
                                                     </Select>
                                                 </div>
+
+                                                {/* Lokasyon Filtreleri */}
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                                    <Select
+                                                        placeholder="İl"
+                                                        className="w-full"
+                                                        allowClear
+                                                        showSearch
+                                                        onChange={handleProvinceChange}
+                                                        value={provinces.find(p => p.name === filterProvince)?.id} // ID ile eşleştirip göster
+                                                        filterOption={(input, option) => option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
+                                                    >
+                                                        {provinces.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
+                                                    </Select>
+
+                                                    <Select
+                                                        placeholder="İlçe"
+                                                        className="w-full"
+                                                        allowClear
+                                                        showSearch
+                                                        disabled={!filterProvince}
+                                                        onChange={handleDistrictChange}
+                                                        value={districts.find(d => d.name === filterDistrict)?.id}
+                                                        filterOption={(input, option) => option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
+                                                    >
+                                                        {districts.map(d => <Select.Option key={d.id} value={d.id}>{d.name}</Select.Option>)}
+                                                    </Select>
+
+                                                    <Select
+                                                        placeholder="Mahalle"
+                                                        className="w-full"
+                                                        allowClear
+                                                        showSearch
+                                                        disabled={!filterDistrict}
+                                                        onChange={(val, opt) => { setFilterNeighborhood(opt ? opt.children : null); setFieldValue('doctor', ''); }}
+                                                        value={neighborhoods.find(n => n.name === filterNeighborhood)?.id}
+                                                        filterOption={(input, option) => option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
+                                                    >
+                                                        {neighborhoods.map(n => <Select.Option key={n.id} value={n.id}>{n.name}</Select.Option>)}
+                                                    </Select>
+                                                </div>
+
+                                                {/* Fiyat Filtreleri */}
+                                                <div className="mb-4">
+                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Muayene Ücreti Aralığı</label>
+                                                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200">
+                                                        <InputNumber
+                                                            bordered={false}
+                                                            className="flex-1 text-center"
+                                                            placeholder="Min ₺"
+                                                            min={0}
+                                                            value={minPrice}
+                                                            onChange={(val) => { setMinPrice(val); setFieldValue('doctor', ''); }}
+                                                        />
+                                                        <div className="h-4 w-px bg-gray-300"></div> {/* Dikey Ayıraç Çizgisi */}
+                                                        <InputNumber
+                                                            bordered={false}
+                                                            className="flex-1 text-center"
+                                                            placeholder="Max ₺"
+                                                            min={0}
+                                                            value={maxPrice}
+                                                            onChange={(val) => { setMaxPrice(val); setFieldValue('doctor', ''); }}
+                                                        />
+                                                    </div>
+                                                </div>
                                                 
+                                                {/* Doktor Seçimi */}
                                                 <div>
-                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Doktor Seçimi</label>
+                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">
+                                                        Uygun Doktorlar ({filteredDoctors.length})
+                                                    </label>
                                                     <Select
                                                         size="large"
-                                                        placeholder="Listeden doktor seçiniz"
+                                                        placeholder={filteredDoctors.length === 0 ? "Kriterlere uygun doktor bulunamadı" : "Listeden doktor seçiniz"}
                                                         value={values.doctor || undefined}
                                                         onChange={(val) => {
                                                             setFieldValue('doctor', val);
@@ -234,6 +399,7 @@ const CreateAppointment = () => {
                                                             setFieldValue('end', '');
                                                         }}
                                                         loading={loadingDoctors}
+                                                        disabled={filteredDoctors.length === 0}
                                                         className="w-full"
                                                         showSearch
                                                         status={errors.doctor && touched.doctor ? "error" : ""}
@@ -241,7 +407,7 @@ const CreateAppointment = () => {
                                                     >
                                                         {filteredDoctors.map((doc) => (
                                                             <Select.Option key={doc.id} value={doc.id}>
-                                                                {doc.user?.name} - {getDocSpecialityName(doc)}
+                                                                {doc.user?.name} - {doc.consultationFee ? `${doc.consultationFee} TL` : 'Ücretsiz'}
                                                             </Select.Option>
                                                         ))}
                                                     </Select>
@@ -369,7 +535,7 @@ const CreateAppointment = () => {
                                                         </div>
                                                         <div className="flex justify-between text-sm items-center">
                                                             <span className="text-gray-500 font-medium">Lokasyon</span>
-                                                            <span className="font-bold text-gray-800">{selectedDoctorData?.location}</span>
+                                                            <span className="font-bold text-gray-800">{selectedDoctorData?.fullLocation || selectedDoctorData?.location}</span>
                                                         </div>
                                                     </div>
 
@@ -422,7 +588,7 @@ const CreateAppointment = () => {
                                                             <EnvironmentOutlined className="mt-1 text-red-500 text-lg" />
                                                             <div>
                                                                 <span className="block text-xs font-bold text-gray-400 uppercase">Konum</span>
-                                                                <span className="text-gray-700 font-medium">{selectedDoctorData.location || 'Konum belirtilmemiş'}</span>
+                                                                <span className="text-gray-700 font-medium">{selectedDoctorData.fullLocation || selectedDoctorData.location || 'Konum belirtilmemiş'}</span>
                                                             </div>
                                                         </div>
 

@@ -5,13 +5,16 @@ import { RegisterSchema } from '../validations/AuthValidations';
 import {
     UserOutlined, LockOutlined, MailOutlined,
     TeamOutlined, UploadOutlined, HeartFilled,
-    MedicineBoxOutlined
+    MedicineBoxOutlined, IdcardOutlined // Idcard ikonu eklendi
 } from '@ant-design/icons';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { registerStart, registerFailure, registerSuccess, selectAuthLoading } from '../store/slices/authSlice';
 import authService from '../api/authService';
 import specialityService from '../api/specialityService';
+
+// Not: RegisterSchema validasyon dosyasına tc için yup validasyonu eklemeyi unutmayın.
+// Örn: tc: Yup.string().length(11, 'TC 11 hane olmalı').required('Zorunlu')
 
 const Register = () => {
     const navigate = useNavigate();
@@ -25,7 +28,7 @@ const Register = () => {
                 const response = await specialityService.getAllSpecialities();
                 setSpecialities(response.data || response || []);
             } catch (error) {
-                console.error("Uzmanlık alanları yüklenemedi", error);
+                // Sessiz hata
             }
         };
         fetchSpecialities();
@@ -50,11 +53,11 @@ const Register = () => {
         } catch (error) {
             console.error("Kayıt Hatası Detayı:", error);
             let errorMsg = 'Kayıt başarısız';
-            if (error.response && error.response.data && error.response.data.message) {
+            if(error.response && error.response.data && error.response.data.message)
                 errorMsg = error.response.data.message;
-            } else if (error.message) {
+            else if(error.message)
                 errorMsg = error.message;
-            }
+            
             dispatch(registerFailure(errorMsg));
             message.error(errorMsg);
         } finally {
@@ -64,11 +67,9 @@ const Register = () => {
 
     return (
         <div className='min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-green-100 p-4 py-10 relative overflow-hidden'>
-            {/* Arka Plan Deseni */}
             <div className="absolute inset-0 opacity-40" style={{ backgroundImage: `radial-gradient(#3b82f6 0.5px, transparent 0.5px)`, backgroundSize: '24px 24px' }}></div>
 
             <div className='w-full max-w-3xl relative z-10'>
-                {/* Header / Logo */}
                 <div className='text-center mb-8 animate-fade-in-down'>
                     <div className='inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-green-500 rounded-2xl rotate-3 shadow-lg mb-4'>
                         <HeartFilled onClick={() => navigate("/")} className='text-white text-3xl -rotate-3' />
@@ -77,17 +78,19 @@ const Register = () => {
                     <p className='text-gray-500 mt-2'>Sağlık yolculuğunuz burada başlıyor</p>
                 </div>
 
-                {/* Glassmorphism Card */}
                 <Card className='shadow-2xl border-0 rounded-3xl bg-white/80 backdrop-blur-xl' styles={{ body: { padding: '2.5rem' } }}>
                     <Formik
-                        initialValues={{ name: '', email: '', password: '', confirmPassword: '', role: 'patient', documents: null, speciality: '', location: '' }}
+                        initialValues={{ 
+                            name: '', email: '', password: '', confirmPassword: '', 
+                            role: 'patient', documents: null, speciality: '', 
+                            tc: '' // TC eklendi
+                        }}
                         validationSchema={RegisterSchema}
                         onSubmit={handleRegister}
                     >
                         {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting, setFieldValue }) => (
                             <Form onFinish={handleSubmit} layout="vertical">
                                 
-                                {/* Rol Seçimi */}
                                 <div className="mb-8">
                                     <label className="block text-gray-700 font-bold mb-3 text-center">Hesap Türünü Seçin</label>
                                     <Radio.Group value={values.role} onChange={e => setFieldValue('role', e.target.value)} className="w-full">
@@ -118,10 +121,31 @@ const Register = () => {
                                     <Form.Item help={touched.name && errors.name} validateStatus={touched.name && errors.name ? 'error' : ''}>
                                         <Input size='large' name='name' prefix={<UserOutlined className="text-gray-400" />} placeholder='Ad Soyad' value={values.name} onChange={handleChange} onBlur={handleBlur} className='rounded-xl py-3' />
                                     </Form.Item>
-                                    <Form.Item help={touched.email && errors.email} validateStatus={touched.email && errors.email ? 'error' : ''}>
-                                        <Input size='large' name='email' prefix={<MailOutlined className="text-gray-400" />} placeholder='E-posta' value={values.email} onChange={handleChange} onBlur={handleBlur} className='rounded-xl py-3' />
+                                    
+                                    {/* TC KİMLİK INPUT */}
+                                    <Form.Item help={touched.tc && errors.tc} validateStatus={touched.tc && errors.tc ? 'error' : ''}>
+                                        <Input 
+                                            size='large' 
+                                            name='tc' 
+                                            prefix={<IdcardOutlined className="text-gray-400" />} 
+                                            placeholder='TC Kimlik No' 
+                                            value={values.tc} 
+                                            onChange={(e) => {
+                                                // Sadece rakam girilmesini sağla
+                                                const val = e.target.value;
+                                                if (/^\d*$/.test(val) && val.length <= 11) {
+                                                    handleChange(e);
+                                                }
+                                            }}
+                                            onBlur={handleBlur} 
+                                            className='rounded-xl py-3' 
+                                        />
                                     </Form.Item>
                                 </div>
+
+                                <Form.Item help={touched.email && errors.email} validateStatus={touched.email && errors.email ? 'error' : ''}>
+                                    <Input size='large' name='email' prefix={<MailOutlined className="text-gray-400" />} placeholder='E-posta' value={values.email} onChange={handleChange} onBlur={handleBlur} className='rounded-xl py-3' />
+                                </Form.Item>
 
                                 {/* Doktor Özel Alanları */}
                                 {values.role === 'doctor' && (
@@ -129,7 +153,7 @@ const Register = () => {
                                         <h3 className="font-bold text-green-800 mb-4 flex items-center gap-2">
                                             <MedicineBoxOutlined /> Doktor Bilgileri
                                         </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                                             <Form.Item help={touched.speciality && errors.speciality} validateStatus={touched.speciality && errors.speciality ? 'error' : ''}>
                                                 <select 
                                                     name="speciality" 
@@ -146,10 +170,7 @@ const Register = () => {
                                                     ))}
                                                 </select>
                                             </Form.Item>
-                                            
-                                            <Form.Item help={touched.location && errors.location} validateStatus={touched.location && errors.location ? 'error' : ''}>
-                                                <Input size="large" name='location' placeholder='Hastane/Klinik Adresi' value={values.location} onChange={handleChange} className='rounded-xl py-3' />
-                                            </Form.Item>
+                                            {/* Not: Location burada sorulmuyor, profil ayarlarında detaylı girilecek */}
                                         </div>
                                         <Form.Item help={touched.documents && errors.documents} validateStatus={touched.documents && errors.documents ? 'error' : ''} className="mb-2">
                                             <Upload maxCount={1} beforeUpload={file => { setFieldValue('documents', file); return false; }} onRemove={() => setFieldValue('documents', null)} accept=".pdf">

@@ -6,13 +6,13 @@ import {
     EyeOutlined,
     CloseCircleOutlined,
     PlusOutlined,
-    UserOutlined,
-    MedicineBoxOutlined
+    UserOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import * as appointmentService from '../../api/appointmentService';
+import specialityService from '../../api/specialityService'; // EKLENDİ: Uzmanlık servisi
 import {
     fetchMyAppointments,
     selectAllAppointments,
@@ -30,6 +30,7 @@ const MyAppointments = () => {
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+    const [specialities, setSpecialities] = useState([]); // EKLENDİ: Uzmanlık listesi state'i
 
     // Veri çekme fonksiyonu
     const refreshData = useCallback(() => {
@@ -38,9 +39,41 @@ const MyAppointments = () => {
         });
     }, [dispatch]);
 
+    // Uzmanlıkları ve Randevuları Yükle
     useEffect(() => {
+        const fetchSpecialities = async () => {
+            try {
+                const res = await specialityService.getAllSpecialities();
+                setSpecialities(res.data || res || []);
+            } catch (err) {
+                console.error("Uzmanlıklar yüklenemedi", err);
+            }
+        };
+
+        fetchSpecialities();
         refreshData();
     }, [refreshData]);
+
+    // YARDIMCI FONKSİYON: Uzmanlık İsmini Bul
+    const getSpecialityName = (doctor) => {
+        if (!doctor) return '';
+        
+        // 1. Backend Navigation Property gönderdiyse
+        if (doctor.specialityNavigation?.name) return doctor.specialityNavigation.name;
+        
+        // 2. Speciality zaten obje olarak geldiyse
+        if (typeof doctor.speciality === 'object' && doctor.speciality?.name) return doctor.speciality.name;
+        
+        // 3. Speciality ID ise ve listemiz varsa eşleştir
+        if (specialities.length > 0) {
+            // eslint-disable-next-line
+            const found = specialities.find(s => s.id == doctor.speciality);
+            if (found) return found.name;
+        }
+
+        // 4. Eğer string olarak geldiyse (örn: "Dahiliye") direkt döndür, ID ise olduğu gibi kalsın
+        return doctor.speciality;
+    };
 
     const handleCancel = (id) => {
         Modal.confirm({
@@ -82,7 +115,8 @@ const MyAppointments = () => {
                     <Avatar src={doctor?.user?.avatar} icon={<UserOutlined />} className="bg-blue-100 text-blue-600" />
                     <div>
                         <div className="font-medium text-gray-800">Dr. {doctor?.user?.name}</div>
-                        <div className="text-xs text-gray-500">{doctor?.speciality}</div>
+                        {/* GÜNCELLENDİ: Helper fonksiyon kullanılıyor */}
+                        <div className="text-xs text-gray-500">{getSpecialityName(doctor)}</div>
                     </div>
                 </div>
             )
@@ -168,7 +202,7 @@ const MyAppointments = () => {
                     <Table
                         columns={columns}
                         dataSource={appointments}
-                        rowKey="_id"
+                        rowKey="id" // DÜZELTME: MongoDB _id değil SQL id kullanıyorsan burayı kontrol et
                         loading={loading}
                         pagination={{ pageSize: 8 }}
                         locale={{
@@ -181,13 +215,14 @@ const MyAppointments = () => {
                 <div className="md:hidden space-y-4 p-2">
                     {loading ? <div className="text-center py-8">Yükleniyor...</div> : (
                         appointments.length > 0 ? appointments.map(app => (
-                            <Card key={app._id} className="border border-gray-100 shadow-sm rounded-xl">
+                            <Card key={app.id} className="border border-gray-100 shadow-sm rounded-xl">
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-3">
                                         <Avatar src={app.doctor?.user?.avatar} icon={<UserOutlined />} className="bg-blue-100 text-blue-600" />
                                         <div>
                                             <div className="font-bold text-gray-800">Dr. {app.doctor?.user?.name}</div>
-                                            <div className="text-xs text-gray-500">{app.doctor?.speciality}</div>
+                                            {/* GÜNCELLENDİ: Helper fonksiyon */}
+                                            <div className="text-xs text-gray-500">{getSpecialityName(app.doctor)}</div>
                                         </div>
                                     </div>
                                     <Tag color={statusConfig[app.status]?.color}>{statusConfig[app.status]?.text}</Tag>
@@ -209,7 +244,7 @@ const MyAppointments = () => {
                                         Detay
                                     </Button>
                                     {app.status === 'booked' && (
-                                        <Button block danger icon={<CloseCircleOutlined />} onClick={() => handleCancel(app._id)}>
+                                        <Button block danger icon={<CloseCircleOutlined />} onClick={() => handleCancel(app.id)}>
                                             İptal
                                         </Button>
                                     )}
@@ -234,8 +269,9 @@ const MyAppointments = () => {
                             <Avatar size={64} src={selectedAppointment.doctor?.user?.avatar} icon={<UserOutlined />} />
                             <div>
                                 <h3 className="font-bold text-lg m-0">Dr. {selectedAppointment.doctor?.user?.name}</h3>
-                                <p className="text-gray-700 m-0">{selectedAppointment.doctor?.location}</p>
-                                <p className="text-blue-600 m-0">{selectedAppointment.doctor?.speciality}</p>
+                                {/* GÜNCELLEME: fullLocation kullanımı */}
+                                <p className="text-gray-700 m-0">{selectedAppointment.doctor?.fullLocation || selectedAppointment.doctor?.location}</p>
+                                <p className="text-blue-600 m-0">{getSpecialityName(selectedAppointment.doctor)}</p>
                             </div>
                         </div>
 

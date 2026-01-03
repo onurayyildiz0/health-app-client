@@ -15,7 +15,8 @@ import {
     Spin,
     Empty,
     Space,
-    Statistic
+    Statistic,
+    Popconfirm // EKLENDI
 } from 'antd';
 import {
     CalendarOutlined,
@@ -24,10 +25,12 @@ import {
     CloseCircleOutlined,
     UserOutlined,
     EyeOutlined,
-    FilterOutlined
+    FilterOutlined,
+    StopOutlined // EKLENDI
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
+import 'dayjs/locale/tr'; // Türkçe yerelleştirme
 import {
     fetchAppointmentsStart,
     fetchAppointmentsSuccess,
@@ -37,6 +40,9 @@ import {
 } from '../../store/slices/appointmentSlice';
 import axiosInstance from '../../api/axios';
 import * as appointmentService from '../../api/appointmentService';
+
+// Türkçe dil ayarını aktif et
+dayjs.locale('tr');
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -68,6 +74,7 @@ const DoctorAppointments = () => {
         }
     };
 
+    // DURUM GÜNCELLEME (Onayla, Tamamla)
     const handleUpdateStatus = async (appointmentId, newStatus) => {
         try {
             setUpdating(true);
@@ -76,7 +83,23 @@ const DoctorAppointments = () => {
             fetchAppointments();
             if (isModalVisible) setIsModalVisible(false);
         } catch (err) {
-            message.error(err.response?.data?.message || 'Durum güncellenemedi');
+            message.error(err.message || 'Durum güncellenemedi');
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    // İPTAL ETME (Reddet, İptal Et -> Hastaya Email Gider)
+    const handleCancel = async (appointmentId) => {
+        try {
+            setUpdating(true);
+            // Backend'deki cancel endpointi tetiklenir ve email gönderilir
+            await appointmentService.cancelAppointment(appointmentId);
+            message.success('Randevu iptal edildi ve hastaya bilgilendirme gönderildi.');
+            fetchAppointments();
+            if (isModalVisible) setIsModalVisible(false);
+        } catch (err) {
+            message.error(err.response?.data?.message || 'İptal işlemi başarısız');
         } finally {
             setUpdating(false);
         }
@@ -101,8 +124,8 @@ const DoctorAppointments = () => {
     const getStatusText = (status) => {
         const texts = {
             pending: 'Beklemede',
-            booked: 'Onaylı',
-            confirmed: 'Onaylı',
+            booked: 'Rezerve',
+            confirmed: 'Rezerve',
             cancelled: 'İptal',
             completed: 'Tamamlandı'
         };
@@ -133,6 +156,7 @@ const DoctorAppointments = () => {
             default:
                 break;
         }
+        // Tarihe göre sırala
         return filtered.sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix());
     };
 
@@ -162,10 +186,10 @@ const DoctorAppointments = () => {
             title: 'Tarih',
             dataIndex: 'date',
             key: 'date',
-            width: 140,
+            width: 150,
             render: (date) => (
                 <div className="font-medium text-gray-700">
-                    {dayjs(date).format('DD.MM.YYYY')}
+                    {dayjs(date).format('DD MMMM YYYY')}
                 </div>
             )
         },
@@ -201,21 +225,46 @@ const DoctorAppointments = () => {
                         <Button icon={<EyeOutlined />} size="small" onClick={() => showAppointmentDetails(record)} />
                     </Tooltip>
                     
+                    {/* BEKLEYEN RANDEVULAR */}
                     {record.status === 'pending' && (
                         <>
                             <Tooltip title="Onayla">
                                 <Button type="primary" icon={<CheckCircleOutlined />} size="small" onClick={() => handleUpdateStatus(record.id, 'booked')} />
                             </Tooltip>
+                            
                             <Tooltip title="Reddet">
-                                <Button danger icon={<CloseCircleOutlined />} size="small" onClick={() => handleUpdateStatus(record.id, 'cancelled')} />
+                                <Popconfirm
+                                    title="Randevuyu Reddet"
+                                    description="Hastaya iptal maili gönderilecek. Onaylıyor musunuz?"
+                                    onConfirm={() => handleCancel(record.id)}
+                                    okText="Evet"
+                                    cancelText="Hayır"
+                                >
+                                    <Button danger icon={<CloseCircleOutlined />} size="small" />
+                                </Popconfirm>
                             </Tooltip>
                         </>
                     )}
 
+                    {/* ONAYLI RANDEVULAR */}
                     {(record.status === 'booked' || record.status === 'confirmed') && (
-                        <Tooltip title="Tamamla">
-                            <Button type="primary" ghost icon={<CheckCircleOutlined />} size="small" onClick={() => handleUpdateStatus(record.id, 'completed')} />
-                        </Tooltip>
+                        <>
+                            <Tooltip title="Tamamla">
+                                <Button type="primary" ghost icon={<CheckCircleOutlined />} size="small" onClick={() => handleUpdateStatus(record.id, 'completed')} />
+                            </Tooltip>
+                            
+                            <Tooltip title="İptal Et">
+                                <Popconfirm
+                                    title="Randevuyu İptal Et"
+                                    description="Hasta bilgilendirilecek. İşlemi onaylıyor musunuz?"
+                                    onConfirm={() => handleCancel(record.id)}
+                                    okText="Evet"
+                                    cancelText="Hayır"
+                                >
+                                    <Button danger ghost icon={<StopOutlined />} size="small" />
+                                </Popconfirm>
+                            </Tooltip>
+                        </>
                     )}
                 </Space>
             )
@@ -284,7 +333,6 @@ const DoctorAppointments = () => {
                                 <Option value="all">Tüm Randevular</Option>
                                 <Option value="today">Bugün</Option>
                                 <Option value="upcoming">Yaklaşan</Option>
-                                {/* <Option value="pending">Onay Bekleyen</Option> */}
                                 <Option value="past">Geçmiş</Option>
                             </Select>
                         </div>
@@ -330,14 +378,36 @@ const DoctorAppointments = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
+                            {/* BEKLEYEN İŞLEMLERİ */}
                             {apt.status === 'pending' && (
                                 <>
                                     <Button type="primary" block onClick={() => handleUpdateStatus(apt.id, 'booked')}>Onayla</Button>
-                                    <Button danger block onClick={() => handleUpdateStatus(apt.id, 'cancelled')}>Reddet</Button>
+                                    
+                                    <Popconfirm
+                                        title="Reddet?"
+                                        onConfirm={() => handleCancel(apt.id)}
+                                        okText="Evet"
+                                        cancelText="Hayır"
+                                    >
+                                        <Button danger block>Reddet</Button>
+                                    </Popconfirm>
                                 </>
                             )}
+                            
+                            {/* ONAYLI İŞLEMLERİ */}
                             {(apt.status === 'booked' || apt.status === 'confirmed') && (
-                                <Button type="primary" ghost block className="col-span-2" onClick={() => handleUpdateStatus(apt.id, 'completed')}>Tamamla</Button>
+                                <>
+                                     <Button type="primary" ghost block onClick={() => handleUpdateStatus(apt.id, 'completed')}>Tamamla</Button>
+                                     
+                                     <Popconfirm
+                                        title="İptal Et?"
+                                        onConfirm={() => handleCancel(apt.id)}
+                                        okText="Evet"
+                                        cancelText="Hayır"
+                                    >
+                                        <Button danger block>İptal</Button>
+                                    </Popconfirm>
+                                </>
                             )}
                         </div>
                     </Card>
@@ -370,7 +440,7 @@ const DoctorAppointments = () => {
                             <div className="bg-white border p-4 rounded-xl text-center">
                                 <div className="text-xs text-gray-400 mb-1 font-bold tracking-wide">TARİH</div>
                                 <div className="font-bold text-gray-800 text-lg">
-                                    {dayjs(selectedAppointment.date).format('DD.MM.YYYY')}
+                                    {dayjs(selectedAppointment.date).format('DD MMMM YYYY')}
                                 </div>
                             </div>
                             <div className="bg-white border p-4 rounded-xl text-center">
@@ -388,12 +458,26 @@ const DoctorAppointments = () => {
                             </div>
                         )}
 
-                        {selectedAppointment.status === 'pending' && (
-                            <div className="flex gap-3 pt-2">
-                                <Button type="primary" block size="large" onClick={() => handleUpdateStatus(selectedAppointment.id, 'booked')} loading={updating}>Onayla</Button>
-                                <Button danger block size="large" onClick={() => handleUpdateStatus(selectedAppointment.id, 'cancelled')} loading={updating}>Reddet</Button>
-                            </div>
-                        )}
+                        {/* MODAL İÇİ AKSİYON BUTONLARI */}
+                        <div className="flex gap-3 pt-2">
+                             {selectedAppointment.status === 'pending' && (
+                                <>
+                                    <Button type="primary" block size="large" onClick={() => handleUpdateStatus(selectedAppointment.id, 'booked')} loading={updating}>Onayla</Button>
+                                    <Popconfirm title="Reddetmek istiyor musunuz?" onConfirm={() => handleCancel(selectedAppointment.id)} okText="Evet" cancelText="Hayır">
+                                        <Button danger block size="large" loading={updating}>Reddet</Button>
+                                    </Popconfirm>
+                                </>
+                            )}
+
+                            {(selectedAppointment.status === 'booked' || selectedAppointment.status === 'confirmed') && (
+                                <>
+                                    <Button type="primary" ghost block size="large" onClick={() => handleUpdateStatus(selectedAppointment.id, 'completed')} loading={updating}>Tamamla</Button>
+                                    <Popconfirm title="İptal etmek istiyor musunuz?" onConfirm={() => handleCancel(selectedAppointment.id)} okText="Evet" cancelText="Hayır">
+                                        <Button danger block size="large" loading={updating}>İptal Et</Button>
+                                    </Popconfirm>
+                                </>
+                            )}
+                        </div>
                     </div>
                 )}
             </Modal>
