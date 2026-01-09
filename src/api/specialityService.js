@@ -12,7 +12,7 @@ import axiosInstance from './axios';
  */
 export const getAllSpecialities = async () => {
     const response = await axiosInstance.get('/specialities');
-    return response.data;
+    return response.data; // response.data şuna döner: { statusCode: 200, data: [...] }
 };
 
 /**
@@ -24,7 +24,37 @@ export const getSpecialityById = async (id) => {
     return response.data;
 };
 
+/**
+ * YENİ UZMANLIK EKLE (ADMIN)
+ * Backend Endpoint: POST /api/specialities
+ */
+export const addSpeciality = async (data) => {
+    const response = await axiosInstance.post('/specialities', data);
+    return response.data;
+};
+
+/**
+ * UZMANLIK GÜNCELLE (ADMIN)
+ * Backend Endpoint: PUT /api/specialities/:id
+ */
+export const updateSpeciality = async (id, data) => {
+    const response = await axiosInstance.put(`/specialities/${id}`, data);
+    return response.data;
+};
+
+/**
+ * UZMANLIK SİL (ADMIN)
+ * Backend Endpoint: DELETE /api/specialities/:id
+ */
+export const deleteSpeciality = async (id) => {
+    const response = await axiosInstance.delete(`/specialities/${id}`);
+    return response.data;
+};
+
 export default {
     getAllSpecialities,
-    getSpecialityById
+    getSpecialityById,
+    addSpeciality,
+    updateSpeciality,
+    deleteSpeciality
 };

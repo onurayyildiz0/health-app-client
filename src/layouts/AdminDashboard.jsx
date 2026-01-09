@@ -196,7 +196,8 @@ const AdminDashboard = () => {
                     <Card title="Hızlı Erişim" className='shadow-sm h-full'>
                         <div className="grid grid-cols-2 gap-4">
                             <Button block href="/dashboard/admin/users">Kullanıcı Yönetimi</Button>
-                            <Button block href="/dashboard/admin/appointments">Randevu Listesi</Button>
+                            <Button block href="/dashboard/admin/appointments">Randevu Yönetimi</Button>
+                            <Button block href="/dashboard/admin/speciality">Uzmanlık Yönetimi</Button>
                             {/* Diğer hızlı linkler eklenebilir */}
                         </div>
                     </Card>

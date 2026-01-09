@@ -36,6 +36,7 @@ import AdminAppointments from './pages/admin/AdminAppointments'
 import VerifyEmailChange from './pages/VerifyEmailChange'
 import VerifyEmail from './pages/VerifyEmail'
 import DoctorInformations from './pages/doctor/DoctorInformations'
+import AdminSpeciality from './pages/admin/AdminSpeciality'
 
 function App() {
 
@@ -112,8 +113,9 @@ function App() {
             >
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<UserManagement />} />
-              <Route path="appointments" element={<AdminAppointments />} /> {/* <-- YENİ ROTA */}
+              <Route path="appointments" element={<AdminAppointments />} />
               <Route path="settings" element={<ProfileSettings />} />
+              <Route path="specialities" element={<AdminSpeciality/>} />
             </Route>
           </Route>
 

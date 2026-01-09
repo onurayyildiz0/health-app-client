@@ -137,6 +137,12 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     icon: <TeamOutlined />,
                     label: 'Randevu Yönetimi',
                     onClick: () => navigate(`${basePath}/appointments`)
+                },
+                {
+                    key: `${basePath}/specialities`,
+                    icon: <TeamOutlined />,
+                    label: "Uzmanlık Yönetimi",
+                    onClick: () => navigate(`${basePath}/specialities`)
                 }
             ];
         }
