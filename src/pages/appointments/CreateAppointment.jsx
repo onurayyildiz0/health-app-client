@@ -608,11 +608,12 @@ const CreateAppointment = () => {
                                                             size={80}
                                                             src={selectedDoctorData.user?.avatar}
                                                             icon={<UserOutlined />}
-                                                            className="shadow-md border-4 border-white"
+                                                            className="shadow-md border-4 border-white shrink-0"
                                                         />
                                                         <div className="text-left">
                                                             <Title level={4} className="!mb-0 !mt-0 !text-lg">Dr. {selectedDoctorData.user?.name}</Title>
                                                             <Tag color="blue" className="mt-1 border-0">{getDocSpecialityName(selectedDoctorData)}</Tag>
+                                                            <span>{selectedDoctorData.user.email ? selectedDoctorData.user.email : ""}</span>
                                                         </div>
                                                     </div>
 
