@@ -13,14 +13,14 @@ import tr_TR from 'antd/locale/tr_TR';
 import * as appointmentService from '../../api/appointmentService';
 import axiosInstance from '../../api/axios';
 import specialityService from '../../api/specialityService';
-import locationService from '../../api/locationService'; // EKLENDİ
+import locationService from '../../api/locationService';
 import { createAppointmentSchema } from '../../validations/AppointmentValidations';
 import { selectAppointmentLoading, selectAppointmentError } from '../../store/slices/appointmentSlice';
 import 'dayjs/locale/tr';
 
 dayjs.locale('tr');
-
 dayjs.extend(isBetween);
+
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 
@@ -46,16 +46,15 @@ const CreateAppointment = () => {
     const [districts, setDistricts] = useState([]);
     const [neighborhoods, setNeighborhoods] = useState([]);
     
-    const [filterProvince, setFilterProvince] = useState(null);     // İsim olarak tutuyoruz
-    const [filterDistrict, setFilterDistrict] = useState(null);     // İsim olarak tutuyoruz
-    const [filterNeighborhood, setFilterNeighborhood] = useState(null); // İsim olarak tutuyoruz
+    const [filterProvince, setFilterProvince] = useState(null);
+    const [filterDistrict, setFilterDistrict] = useState(null);
+    const [filterNeighborhood, setFilterNeighborhood] = useState(null);
     
     // Fiyat Filtreleri
     const [minPrice, setMinPrice] = useState(null);
     const [maxPrice, setMaxPrice] = useState(null);
     // -------------------------
 
-    // Formik için başlangıç değerleri
     const initialValues = { 
         doctor: preSelectedDoctorId ? parseInt(preSelectedDoctorId) : '', 
         date: null, 
@@ -68,11 +67,10 @@ const CreateAppointment = () => {
         const fetchInitialData = async () => {
             try {
                 setLoadingDoctors(true);
-                // Paralel veri çekme: Doktorlar, Uzmanlıklar ve İller
                 const [docRes, specRes, provRes] = await Promise.all([
                     axiosInstance.get('/doctors'),
                     specialityService.getAllSpecialities(),
-                    locationService.getAllProvinces() // İlleri çek
+                    locationService.getAllProvinces()
                 ]);
 
                 setSpecialities(specRes.data || specRes || []);
@@ -88,7 +86,7 @@ const CreateAppointment = () => {
                         parsedClocks = doc.clocks;
                     }
 
-                    // 2. UnavailableDates Parse
+                    // 2. UnavailableDates Parse (GÜNCELLENEN KISIM)
                     let parsedUnavailableDates = [];
                     if (doc.unavailableDates) {
                         try {
@@ -96,14 +94,25 @@ const CreateAppointment = () => {
                                 ? JSON.parse(doc.unavailableDates) 
                                 : doc.unavailableDates;
                             
+                            // Yeni yapımız Dictionary (Object) olduğu için Object.values ile diziye çeviriyoruz.
+                            // Eski yapıda Array gelme ihtimaline karşı kontrol ekliyoruz.
+                            let datesList = [];
                             if (Array.isArray(rawDates)) {
-                                parsedUnavailableDates = rawDates.map(d => ({
+                                datesList = rawDates; // Eski veri ise direkt al
+                            } else if (typeof rawDates === 'object' && rawDates !== null) {
+                                datesList = Object.values(rawDates); // Yeni yapı: Objeden Diziye
+                            }
+
+                            // Sadece IsDeleted: false olanları ve tarihi düzgün olanları alıyoruz
+                            parsedUnavailableDates = datesList
+                                .filter(d => !d.IsDeleted) // İptal edilen izinleri yoksay
+                                .map(d => ({
                                     startDate: d.startDate || d.StartDate, 
                                     endDate: d.endDate || d.EndDate,
                                     reason: d.reason || d.Reason
                                 }));
-                            }
-                        } catch (e) { console.error("Tarih hatası", e); }
+
+                        } catch (e) { console.error("Tarih parse hatası", e); }
                     }
 
                     return {
@@ -125,7 +134,7 @@ const CreateAppointment = () => {
 
     // --- LOKASYON DEĞİŞİM HANDLERLARI ---
     const handleProvinceChange = async (val, option) => {
-        setFilterProvince(option ? option.children : null); // İsmi kaydet
+        setFilterProvince(option ? option.children : null);
         setFilterDistrict(null);
         setFilterNeighborhood(null);
         setDistricts([]);
@@ -133,7 +142,7 @@ const CreateAppointment = () => {
 
         if (val) {
             try {
-                const res = await locationService.getProvinceDetails(val); // ID ile ilçeleri çek
+                const res = await locationService.getProvinceDetails(val);
                 setDistricts(res.data.districts || []);
             } catch (error) {
                 console.error(error);
@@ -148,7 +157,7 @@ const CreateAppointment = () => {
 
         if (val) {
             try {
-                const res = await locationService.getNeighborhoodsByDistrict(val); // ID ile mahalleleri çek
+                const res = await locationService.getNeighborhoodsByDistrict(val);
                 setNeighborhoods(res.data || []);
             } catch (error) {
                 console.error(error);
@@ -166,9 +175,8 @@ const CreateAppointment = () => {
         setMaxPrice(null);
         setDistricts([]);
         setNeighborhoods([]);
-        setFieldValue('doctor', ''); // Form seçimini de sıfırla
+        setFieldValue('doctor', '');
     };
-    // ------------------------------------
 
     const handleSubmit = async (values) => {
         const selectedDoctor = doctors.find(d => d.id === values.doctor);
@@ -235,24 +243,19 @@ const CreateAppointment = () => {
                 >
                     {({ values, errors, touched, setFieldValue, submitForm }) => {
                         
-                        // --- FİLTRELEME MANTIĞI ---
                         const filteredDoctors = doctors.filter(doctor => {
-                            // 1. İsim Arama
                             const matchesSearch = !searchTerm || doctor.user?.name?.toLowerCase().includes(searchTerm.toLowerCase());
                             
-                            // 2. Branş
                             let matchesSpeciality = true;
                             if (selectedSpeciality) {
                                 const docSpecId = typeof doctor.speciality === 'object' ? doctor.speciality.id : doctor.speciality;
                                 matchesSpeciality = docSpecId === selectedSpeciality;
                             }
 
-                            // 3. Lokasyon (Backend string olarak dönüyor, biz de isim olarak filtreliyoruz)
                             const matchesProvince = !filterProvince || doctor.province === filterProvince;
                             const matchesDistrict = !filterDistrict || doctor.district === filterDistrict;
                             const matchesNeighborhood = !filterNeighborhood || doctor.neighborhood === filterNeighborhood;
 
-                            // 4. Fiyat
                             const fee = doctor.consultationFee || 0;
                             const matchesMinPrice = minPrice === null || fee >= minPrice;
                             const matchesMaxPrice = maxPrice === null || fee <= maxPrice;
@@ -326,7 +329,7 @@ const CreateAppointment = () => {
                                                         allowClear
                                                         showSearch
                                                         onChange={handleProvinceChange}
-                                                        value={provinces.find(p => p.name === filterProvince)?.id} // ID ile eşleştirip göster
+                                                        value={provinces.find(p => p.name === filterProvince)?.id}
                                                         filterOption={(input, option) => option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
                                                     >
                                                         {provinces.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
@@ -371,7 +374,7 @@ const CreateAppointment = () => {
                                                             value={minPrice}
                                                             onChange={(val) => { setMinPrice(val); setFieldValue('doctor', ''); }}
                                                         />
-                                                        <div className="h-4 w-px bg-gray-300"></div> {/* Dikey Ayıraç Çizgisi */}
+                                                        <div className="h-4 w-px bg-gray-300"></div>
                                                         <InputNumber
                                                             bordered={false}
                                                             className="flex-1 text-center"
@@ -444,6 +447,8 @@ const CreateAppointment = () => {
 
                                                             if (selectedDoctorData.unavailableDates?.length) {
                                                                 return selectedDoctorData.unavailableDates.some(r => {
+                                                                    // IsDeleted kontrolü zaten veri çekilirken yapıldığı için
+                                                                    // buradaki liste sadece AKTİF izinleri içerir.
                                                                     const s = dayjs(r.startDate).startOf('day');
                                                                     const e = dayjs(r.endDate).endOf('day');
                                                                     return current.isBetween(s, e, 'day', '[]');

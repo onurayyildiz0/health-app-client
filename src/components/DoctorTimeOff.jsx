@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Card, Form, DatePicker, Input, Button, Table, message, Spin, Empty } from 'antd';
-import { CalendarOutlined } from '@ant-design/icons';
+import { Card, Form, DatePicker, Input, Button, Table, message, Spin, Empty, Tag, Popconfirm } from 'antd';
+import { CalendarOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { addUnavailableDate, getMyDoctorProfile } from '../api/doctorService'; 
+import { addUnavailableDate, getMyDoctorProfile, cancelUnavailableDate } from '../api/doctorService'; 
 
 const { RangePicker } = DatePicker;
 
@@ -18,21 +18,22 @@ export default function DoctorTimeOff() {
             const res = await getMyDoctorProfile();
             
             if (res && res.data.unavailableDates) {
-                let parsedData = [];
-                
-                // Gelen veri string ise parse et, array ise direkt al
+                // Backend'den artık bir Obje {} geliyor. Bunu Array [] formatına çevirmeliyiz.
                 const rawData = typeof res.data.unavailableDates === 'string' 
                     ? JSON.parse(res.data.unavailableDates) 
                     : res.data.unavailableDates;
 
-                // FIX: Antd Table "rowKey" uyarısını çözmek için veriye sabit bir ID (uid) ekliyoruz.
-                // Veriyi aldığımız anda index'i kullanarak statik bir ID oluşturuyoruz.
-                parsedData = rawData.map((item, index) => ({
-                    ...item,
-                    uid: `${index}-${item.StartDate}` // Benzersiz bir key oluşturur
+                // Object.entries ile [Key, Value] çiftlerini alıp düz bir listeye çeviriyoruz
+                // Örn: { "leave_1": { StartDate:..., IsDeleted: false } }
+                const parsedList = Object.entries(rawData || {}).map(([key, value]) => ({
+                    key: key, // Tablo için rowKey ve silme işlemi için ID
+                    ...value
                 }));
-                console.log(parsedData)
-                setUnavailableDates(parsedData);
+                
+                // Tarihe göre sıralama (Yeniden eskiye)
+                parsedList.sort((a, b) => new Date(b.StartDate) - new Date(a.StartDate));
+
+                setUnavailableDates(parsedList);
             }
         } catch (error) {
             console.error(error);
@@ -46,16 +47,26 @@ export default function DoctorTimeOff() {
         fetchData();
     }, []);
 
+    const handleCancelDate = async (key) => {
+        try {
+            await cancelUnavailableDate(key);
+            message.success("İzin iptal edildi.");
+            fetchData(); // Tabloyu yenile
+        } catch (error) {
+            message.error(error.response?.data?.message || "İptal işlemi başarısız.");
+        }
+    };
+
     const onFinish = async (values) => {
         try {
             setSubmitting(true);
-
             const startDate = values.dates[0];
             const endDate = values.dates[1];
-            const diffDays = endDate.diff(startDate, 'day');
             
+            // Basit bir validasyon
+            const diffDays = endDate.diff(startDate, 'day');
             if (diffDays > 90) {
-                message.error("İzin süresi en fazla 3 ay (90 gün) olabilir.");
+                message.error("İzin süresi en fazla 3 ay olabilir.");
                 return;
             }
 
@@ -66,7 +77,6 @@ export default function DoctorTimeOff() {
             };
 
             await addUnavailableDate(payload);
-
             message.success("İzin tarihi başarıyla eklendi.");
             form.resetFields();
             fetchData(); 
@@ -79,22 +89,75 @@ export default function DoctorTimeOff() {
 
     const columns = [
         {
+            title: 'Durum',
+            dataIndex: 'IsDeleted',
+            key: 'IsDeleted',
+            render: (isDeleted, record) => {
+                // Eğer silinmişse "İptal", silinmemişse ve tarihi geçmişse "Tamamlandı", değilse "Aktif"
+                if (isDeleted) return <Tag color="red">İptal Edildi</Tag>;
+                if (dayjs(record.EndDate).isBefore(dayjs())) return <Tag color="gray">Geçmiş</Tag>;
+                return <Tag color="green">Aktif</Tag>;
+            }
+        },
+        {
             title: 'Başlangıç',
             dataIndex: 'StartDate',
             key: 'StartDate',
-            render: (text) => text ? dayjs(text).format('DD.MM.YYYY') : '-',
+            render: (text, record) => (
+                <span style={{ textDecoration: record.IsDeleted ? 'line-through' : 'none', color: record.IsDeleted ? '#999' : 'inherit' }}>
+                    {text ? dayjs(text).format('DD.MM.YYYY') : '-'}
+                </span>
+            ),
         },
         {
             title: 'Bitiş',
             dataIndex: 'EndDate',
             key: 'EndDate',
-            render: (text) => text ? dayjs(text).format('DD.MM.YYYY') : '-',
+            render: (text, record) => (
+                <span style={{ textDecoration: record.IsDeleted ? 'line-through' : 'none', color: record.IsDeleted ? '#999' : 'inherit' }}>
+                    {text ? dayjs(text).format('DD.MM.YYYY') : '-'}
+                </span>
+            ),
         },
         {
             title: 'Sebep',
             dataIndex: 'Reason',
             key: 'Reason',
-            render: (text) => text || 'Belirtilmemiş',
+            render: (text, record) =>
+                (<span style={{ textDecoration: record.IsDeleted ? 'line-through' : 'none', color: record.IsDeleted ? '#999' : 'inherit' }}>
+                    {text || 'Belirtilmemiş'}
+                </span>)
+        },
+        {
+            title: 'İşlem',
+            key: 'action',
+            render: (_, record) => {
+                // İptal butonu koşulları:
+                // 1. Zaten silinmişse buton gözükmesin veya disable olsun.
+                // 2. Bitiş tarihi geçmişse iptal edilemesin.
+                const isPast = dayjs(record.EndDate).isBefore(dayjs());
+                const isDisabled = record.IsDeleted || isPast;
+
+                return (
+                    <Popconfirm
+                        title="İzni iptal et"
+                        description="Bu izni iptal etmek istediğinize emin misiniz?"
+                        onConfirm={() => handleCancelDate(record.key)}
+                        okText="Evet"
+                        cancelText="Hayır"
+                        disabled={isDisabled}
+                    >
+                        <Button 
+                            type="text" 
+                            danger 
+                            icon={<DeleteOutlined />} 
+                            disabled={isDisabled}
+                        >
+                            İptal Et
+                        </Button>
+                    </Popconfirm>
+                );
+            }
         }
     ];
 
@@ -103,13 +166,13 @@ export default function DoctorTimeOff() {
             title={
                 <div className="flex items-center gap-2">
                     <CalendarOutlined className="text-blue-500" />
-                    <span>İzin Dönemlerim</span>
+                    <span>İzin Yönetimi</span>
                 </div>
             } 
-            className="max-w-3xl mx-auto mt-8 shadow-md"
+            className="max-w-4xl mx-auto mt-8 shadow-md"
         >
             {/* --- EKLEME FORMU --- */}
-            <Card type="inner" title="Yeni İzin Ekle" className="mb-6 bg-gray-50">
+            <Card type="inner" title="Yeni İzin Ekle" className="mb-6 bg-gray-50 border-blue-100">
                 <Form layout="vertical" form={form} onFinish={onFinish}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Form.Item
@@ -119,18 +182,8 @@ export default function DoctorTimeOff() {
                         >
                             <RangePicker
                                 className="w-full"
-                                placeholder={['Başlangıç', 'Bitiş']}
                                 format="DD.MM.YYYY"
-                                disabledDate={(current, type) => {
-                                    if (type === 'end') {
-                                        const startDate = form.getFieldValue('dates')?.[0];
-                                        if (startDate) {
-                                            const maxEnd = startDate.add(1, 'month');
-                                            return current && current > maxEnd;
-                                        }
-                                    }
-                                    return current && current < dayjs().startOf('day');
-                                }}
+                                disabledDate={(current) => current && current < dayjs().startOf('day')}
                             />
                         </Form.Item>
 
@@ -151,14 +204,13 @@ export default function DoctorTimeOff() {
             </Card>
 
             {/* --- LİSTELEME TABLOSU --- */}
-            <h3 className="text-lg font-semibold mb-4">Mevcut İzinlerim</h3>
+            <h3 className="text-lg font-semibold mb-4">İzin Geçmişi</h3>
             {loading ? <Spin /> : (
                 <Table
                     dataSource={unavailableDates}
                     columns={columns}
-                    // FIX: Artık veri içinde 'uid' olduğu için fonksiyon kullanmaya gerek yok
-                    rowKey="uid"
-                    locale={{ emptyText: <Empty description="Henüz eklenmiş bir izin yok" /> }}
+                    rowKey="key" // Object.entries'den gelen 'key' alanını kullanıyoruz
+                    locale={{ emptyText: <Empty description="Henüz izin kaydı yok" /> }}
                     pagination={{ pageSize: 5 }}
                 />
             )}

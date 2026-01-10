@@ -18,7 +18,8 @@ import {
     HeartFilled,
     CalendarOutlined,
     StarFilled,
-    DeleteOutlined
+    DeleteOutlined,
+    HeartOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -145,7 +146,7 @@ const Favorites = () => {
                                     <Button
                                         danger
                                         size="small"
-                                        icon={<DeleteOutlined />}
+                                        icon={<HeartOutlined />}
                                         loading={removing === doctor.id}
                                         className="absolute top-2 right-2 z-10"
                                     />
@@ -165,7 +166,7 @@ const Favorites = () => {
                                         Dr. {doctor.user?.name || 'İsimsiz'}
                                     </Title>
                                     <Tag color="blue" className="mb-2">
-                                        {doctor.speciality}
+                                        {doctor.specialityNavigation.name}
                                     </Tag>
 
                                     {/* Puan */}

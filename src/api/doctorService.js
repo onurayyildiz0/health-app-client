@@ -135,6 +135,15 @@ export const updateDoctorInfo = async (infoData) => {
     return response.data;
 };
 
+/**
+ * İZİN İPTAL ET (Doctor)
+ * * Backend Endpoint: DELETE /api/doctors/me/unavailable/:key
+ */
+export const cancelUnavailableDate = async (key) => {
+    const response = await axiosInstance.delete(`/doctors/me/unavailable/${key}`);
+    return response.data;
+};
+
 export default {
     getAllDoctors,
     getDoctorById,
@@ -148,5 +157,6 @@ export default {
     addHealthHistory,
     getMyDoctorProfile,
     addUnavailableDate,
-    updateDoctorInfo
+    updateDoctorInfo,
+    cancelUnavailableDate
 };
