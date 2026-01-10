@@ -16,7 +16,9 @@ import {
     Empty,
     Space,
     Statistic,
-    Popconfirm // EKLENDI
+    Popconfirm,
+    Form,
+    Input
 } from 'antd';
 import {
     CalendarOutlined,
@@ -26,11 +28,11 @@ import {
     UserOutlined,
     EyeOutlined,
     FilterOutlined,
-    StopOutlined // EKLENDI
+    StopOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
-import 'dayjs/locale/tr'; // Türkçe yerelleştirme
+import 'dayjs/locale/tr';
 import {
     fetchAppointmentsStart,
     fetchAppointmentsSuccess,
@@ -41,7 +43,6 @@ import {
 import axiosInstance from '../../api/axios';
 import * as appointmentService from '../../api/appointmentService';
 
-// Türkçe dil ayarını aktif et
 dayjs.locale('tr');
 
 const { Title, Text } = Typography;
@@ -52,10 +53,16 @@ const DoctorAppointments = () => {
     const appointments = useSelector(selectAllAppointments);
     const loading = useSelector(selectAppointmentLoading);
 
+    // Mevcut State'ler
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [statusFilter, setStatusFilter] = useState('all');
     const [updating, setUpdating] = useState(false);
+
+    // Randevu Tamamlama Modalı State'leri
+    const [isCompleteModalVisible, setIsCompleteModalVisible] = useState(false);
+    const [completionForm] = Form.useForm();
+    const [completingAppointmentId, setCompletingAppointmentId] = useState(null);
 
     useEffect(() => {
         fetchAppointments();
@@ -74,7 +81,7 @@ const DoctorAppointments = () => {
         }
     };
 
-    // DURUM GÜNCELLEME (Onayla, Tamamla)
+    // Basit Durum Güncelleme (Onayla vb.)
     const handleUpdateStatus = async (appointmentId, newStatus) => {
         try {
             setUpdating(true);
@@ -89,11 +96,35 @@ const DoctorAppointments = () => {
         }
     };
 
-    // İPTAL ETME (Reddet, İptal Et -> Hastaya Email Gider)
+    // Tamamla Modalını Aç
+    const openCompletionModal = (record) => {
+        setCompletingAppointmentId(record.id);
+        setIsCompleteModalVisible(true);
+    };
+
+    // Tamamla Formunu Gönder
+    const handleCompleteSubmit = async (values) => {
+        try {
+            setUpdating(true);
+            await appointmentService.completeAppointment(completingAppointmentId, values);
+            message.success('Randevu başarıyla tamamlandı ve kayıt oluşturuldu.');
+            setIsCompleteModalVisible(false);
+            completionForm.resetFields();
+            fetchAppointments(); // Listeyi yenile
+            
+            // Eğer detay modalı açıksa onu da kapat veya güncellemek istersen tekrar fetch gerekebilir
+            if(isModalVisible) setIsModalVisible(false);
+        } catch (err) {
+            message.error(err.response?.data?.message || 'İşlem başarısız');
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    // İptal Etme
     const handleCancel = async (appointmentId) => {
         try {
             setUpdating(true);
-            // Backend'deki cancel endpointi tetiklenir ve email gönderilir
             await appointmentService.cancelAppointment(appointmentId);
             message.success('Randevu iptal edildi ve hastaya bilgilendirme gönderildi.');
             fetchAppointments();
@@ -156,7 +187,6 @@ const DoctorAppointments = () => {
             default:
                 break;
         }
-        // Tarihe göre sırala
         return filtered.sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix());
     };
 
@@ -231,7 +261,6 @@ const DoctorAppointments = () => {
                             <Tooltip title="Onayla">
                                 <Button type="primary" icon={<CheckCircleOutlined />} size="small" onClick={() => handleUpdateStatus(record.id, 'booked')} />
                             </Tooltip>
-                            
                             <Tooltip title="Reddet">
                                 <Popconfirm
                                     title="Randevuyu Reddet"
@@ -249,8 +278,8 @@ const DoctorAppointments = () => {
                     {/* ONAYLI RANDEVULAR */}
                     {(record.status === 'booked' || record.status === 'confirmed') && (
                         <>
-                            <Tooltip title="Tamamla">
-                                <Button type="primary" ghost icon={<CheckCircleOutlined />} size="small" onClick={() => handleUpdateStatus(record.id, 'completed')} />
+                            <Tooltip title="Tamamla ve Sonuç Gir">
+                                <Button type="primary" ghost icon={<CheckCircleOutlined />} size="small" onClick={() => openCompletionModal(record)} />
                             </Tooltip>
                             
                             <Tooltip title="İptal Et">
@@ -382,13 +411,7 @@ const DoctorAppointments = () => {
                             {apt.status === 'pending' && (
                                 <>
                                     <Button type="primary" block onClick={() => handleUpdateStatus(apt.id, 'booked')}>Onayla</Button>
-                                    
-                                    <Popconfirm
-                                        title="Reddet?"
-                                        onConfirm={() => handleCancel(apt.id)}
-                                        okText="Evet"
-                                        cancelText="Hayır"
-                                    >
+                                    <Popconfirm title="Reddet?" onConfirm={() => handleCancel(apt.id)} okText="Evet" cancelText="Hayır">
                                         <Button danger block>Reddet</Button>
                                     </Popconfirm>
                                 </>
@@ -397,14 +420,8 @@ const DoctorAppointments = () => {
                             {/* ONAYLI İŞLEMLERİ */}
                             {(apt.status === 'booked' || apt.status === 'confirmed') && (
                                 <>
-                                     <Button type="primary" ghost block onClick={() => handleUpdateStatus(apt.id, 'completed')}>Tamamla</Button>
-                                     
-                                     <Popconfirm
-                                        title="İptal Et?"
-                                        onConfirm={() => handleCancel(apt.id)}
-                                        okText="Evet"
-                                        cancelText="Hayır"
-                                    >
+                                     <Button type="primary" ghost block onClick={() => openCompletionModal(apt)}>Tamamla</Button>
+                                     <Popconfirm title="İptal Et?" onConfirm={() => handleCancel(apt.id)} okText="Evet" cancelText="Hayır">
                                         <Button danger block>İptal</Button>
                                     </Popconfirm>
                                 </>
@@ -428,6 +445,7 @@ const DoctorAppointments = () => {
             >
                 {selectedAppointment && (
                     <div className="space-y-6 pt-4">
+                        {/* Hasta Bilgisi */}
                         <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                             <Avatar size={64} icon={<UserOutlined />} src={selectedAppointment.patient?.avatar} />
                             <div>
@@ -436,6 +454,7 @@ const DoctorAppointments = () => {
                             </div>
                         </div>
 
+                        {/* Tarih Saat */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white border p-4 rounded-xl text-center">
                                 <div className="text-xs text-gray-400 mb-1 font-bold tracking-wide">TARİH</div>
@@ -451,12 +470,39 @@ const DoctorAppointments = () => {
                             </div>
                         </div>
 
+                        {/* Hasta Notu */}
                         {selectedAppointment.notes && (
                             <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
                                 <div className="text-xs text-yellow-600 font-bold mb-2 uppercase">Hasta Notu</div>
                                 <div className="text-gray-700 text-sm">{selectedAppointment.notes}</div>
                             </div>
                         )}
+
+                        {/* --- YENİ BÖLÜM: SAĞLIK GEÇMİŞİ (Tamamlanan Randevular için) --- */}
+                        {selectedAppointment.status === 'completed' && selectedAppointment.healthHistory && (
+                            <div className="bg-green-50 p-4 rounded-xl border border-green-200 mt-4">
+                                <div className="text-green-800 font-bold mb-3 flex items-center gap-2 border-b border-green-200 pb-2">
+                                    <CheckCircleOutlined /> MUAYENE SONUCU (Rapor)
+                                </div>
+                                <div className="space-y-3">
+                                    <div>
+                                        <span className="text-xs font-bold text-green-700 uppercase block">Teşhis</span>
+                                        <p className="text-gray-800 m-0 bg-white/60 p-2 rounded">{selectedAppointment.healthHistory.diagnosis}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-bold text-green-700 uppercase block">Tedavi</span>
+                                        <p className="text-gray-800 m-0 bg-white/60 p-2 rounded">{selectedAppointment.healthHistory.treatment}</p>
+                                    </div>
+                                    {selectedAppointment.healthHistory.notes && (
+                                        <div>
+                                            <span className="text-xs font-bold text-green-700 uppercase block">Doktor Notu</span>
+                                            <p className="text-gray-700 m-0 italic bg-white/60 p-2 rounded">{selectedAppointment.healthHistory.notes}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {/* ----------------------------------------------------------- */}
 
                         {/* MODAL İÇİ AKSİYON BUTONLARI */}
                         <div className="flex gap-3 pt-2">
@@ -471,7 +517,7 @@ const DoctorAppointments = () => {
 
                             {(selectedAppointment.status === 'booked' || selectedAppointment.status === 'confirmed') && (
                                 <>
-                                    <Button type="primary" ghost block size="large" onClick={() => handleUpdateStatus(selectedAppointment.id, 'completed')} loading={updating}>Tamamla</Button>
+                                    <Button type="primary" ghost block size="large" onClick={() => openCompletionModal(selectedAppointment)} loading={updating}>Tamamla</Button>
                                     <Popconfirm title="İptal etmek istiyor musunuz?" onConfirm={() => handleCancel(selectedAppointment.id)} okText="Evet" cancelText="Hayır">
                                         <Button danger block size="large" loading={updating}>İptal Et</Button>
                                     </Popconfirm>
@@ -481,6 +527,53 @@ const DoctorAppointments = () => {
                     </div>
                 )}
             </Modal>
+
+            {/* --- YENİ: RANDEVU TAMAMLAMA FORMU (MODAL) --- */}
+            <Modal
+                title={
+                    <div className="flex items-center gap-2 text-green-700">
+                        <CheckCircleOutlined /> Randevuyu Tamamla & Sonuç Gir
+                    </div>
+                }
+                open={isCompleteModalVisible}
+                onCancel={() => setIsCompleteModalVisible(false)}
+                footer={null}
+                destroyOnClose
+                centered
+            >
+                <Form form={completionForm} layout="vertical" onFinish={handleCompleteSubmit}>
+                    <Form.Item 
+                        name="diagnosis" 
+                        label="Teşhis (Tanı)" 
+                        rules={[{ required: true, message: 'Lütfen teşhis bilgisini giriniz.' }]}
+                    >
+                        <Input placeholder="Örn: Akut Farenjit" />
+                    </Form.Item>
+                    
+                    <Form.Item 
+                        name="treatment" 
+                        label="Uygulanan Tedavi / İlaçlar" 
+                        rules={[{ required: true, message: 'Lütfen tedavi bilgisini giriniz.' }]}
+                    >
+                        <Input.TextArea rows={3} placeholder="Örn: Antibiyotik tedavisi başlandı, istirahat verildi." />
+                    </Form.Item>
+                    
+                    <Form.Item 
+                        name="notes" 
+                        label="Ek Notlar / Reçete Detayı (Opsiyonel)"
+                    >
+                        <Input.TextArea rows={2} placeholder="Özel notlar..." />
+                    </Form.Item>
+
+                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                        <Button onClick={() => setIsCompleteModalVisible(false)}>Vazgeç</Button>
+                        <Button type="primary" htmlType="submit" loading={updating} className="bg-green-600 hover:bg-green-700 border-green-600">
+                            Kaydet ve Tamamla
+                        </Button>
+                    </div>
+                </Form>
+            </Modal>
+            {/* ------------------------------------------- */}
         </div>
     );
 };

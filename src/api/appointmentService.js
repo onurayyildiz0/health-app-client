@@ -94,6 +94,16 @@ export const updateAppointmentStatus = async (appointmentId, status) => {
     return response.data;
 };
 
+/**
+ * RANDEVUYU TAMAMLA (Doktor)
+ * * Backend Endpoint: POST /api/appointments/:id/complete
+ * * Data: { diagnosis, treatment, notes }
+ */
+export const completeAppointment = async (appointmentId, completionData) => {
+    const response = await axiosInstance.post(`/appointments/${appointmentId}/complete`, completionData);
+    return response.data;
+};
+
 export default {
     createAppointment,
     getAppointmentById,
@@ -103,5 +113,6 @@ export default {
     getPatientAppointments,
     getAllAppointments,
     getMyAppointments,
-    updateAppointmentStatus
+    updateAppointmentStatus,
+    completeAppointment
 };

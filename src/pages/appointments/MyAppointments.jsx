@@ -6,13 +6,14 @@ import {
     EyeOutlined,
     CloseCircleOutlined,
     PlusOutlined,
-    UserOutlined
+    UserOutlined,
+    CheckCircleOutlined // EKLENDI
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import * as appointmentService from '../../api/appointmentService';
-import specialityService from '../../api/specialityService'; // EKLENDİ: Uzmanlık servisi
+import specialityService from '../../api/specialityService';
 import {
     fetchMyAppointments,
     selectAllAppointments,
@@ -30,16 +31,14 @@ const MyAppointments = () => {
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [cancelling, setCancelling] = useState(false);
-    const [specialities, setSpecialities] = useState([]); // EKLENDİ: Uzmanlık listesi state'i
+    const [specialities, setSpecialities] = useState([]);
 
-    // Veri çekme fonksiyonu
     const refreshData = useCallback(() => {
         dispatch(fetchMyAppointments()).catch(err => {
-            message.error('Randevular yüklenemedi');
+            message.error(err.message);
         });
     }, [dispatch]);
 
-    // Uzmanlıkları ve Randevuları Yükle
     useEffect(() => {
         const fetchSpecialities = async () => {
             try {
@@ -54,24 +53,15 @@ const MyAppointments = () => {
         refreshData();
     }, [refreshData]);
 
-    // YARDIMCI FONKSİYON: Uzmanlık İsmini Bul
     const getSpecialityName = (doctor) => {
         if (!doctor) return '';
-        
-        // 1. Backend Navigation Property gönderdiyse
         if (doctor.specialityNavigation?.name) return doctor.specialityNavigation.name;
-        
-        // 2. Speciality zaten obje olarak geldiyse
         if (typeof doctor.speciality === 'object' && doctor.speciality?.name) return doctor.speciality.name;
-        
-        // 3. Speciality ID ise ve listemiz varsa eşleştir
         if (specialities.length > 0) {
             // eslint-disable-next-line
             const found = specialities.find(s => s.id == doctor.speciality);
             if (found) return found.name;
         }
-
-        // 4. Eğer string olarak geldiyse (örn: "Dahiliye") direkt döndür, ID ise olduğu gibi kalsın
         return doctor.speciality;
     };
 
@@ -90,7 +80,7 @@ const MyAppointments = () => {
                     message.success('Randevu iptal edildi');
                     refreshData();
                 } catch (err) {
-                    message.error('İptal işlemi başarısız');
+                    message.error(err.message);
                 } finally {
                     setCancelling(false);
                 }
@@ -104,7 +94,6 @@ const MyAppointments = () => {
         completed: { color: 'green', text: 'Tamamlandı', bg: 'bg-green-50' }
     };
 
-    // Masaüstü Tablo Kolonları
     const columns = [
         {
             title: 'Doktor',
@@ -115,7 +104,6 @@ const MyAppointments = () => {
                     <Avatar src={doctor?.user?.avatar} icon={<UserOutlined />} className="bg-blue-100 text-blue-600" />
                     <div>
                         <div className="font-medium text-gray-800">Dr. {doctor?.user?.name}</div>
-                        {/* GÜNCELLENDİ: Helper fonksiyon kullanılıyor */}
                         <div className="text-xs text-gray-500">{getSpecialityName(doctor)}</div>
                     </div>
                 </div>
@@ -202,7 +190,7 @@ const MyAppointments = () => {
                     <Table
                         columns={columns}
                         dataSource={appointments}
-                        rowKey="id" // DÜZELTME: MongoDB _id değil SQL id kullanıyorsan burayı kontrol et
+                        rowKey="id"
                         loading={loading}
                         pagination={{ pageSize: 8 }}
                         locale={{
@@ -221,7 +209,6 @@ const MyAppointments = () => {
                                         <Avatar src={app.doctor?.user?.avatar} icon={<UserOutlined />} className="bg-blue-100 text-blue-600" />
                                         <div>
                                             <div className="font-bold text-gray-800">Dr. {app.doctor?.user?.name}</div>
-                                            {/* GÜNCELLENDİ: Helper fonksiyon */}
                                             <div className="text-xs text-gray-500">{getSpecialityName(app.doctor)}</div>
                                         </div>
                                     </div>
@@ -269,7 +256,6 @@ const MyAppointments = () => {
                             <Avatar size={64} src={selectedAppointment.doctor?.user?.avatar} icon={<UserOutlined />} />
                             <div>
                                 <h3 className="font-bold text-lg m-0">Dr. {selectedAppointment.doctor?.user?.name}</h3>
-                                {/* GÜNCELLEME: fullLocation kullanımı */}
                                 <p className="text-gray-700 m-0">{selectedAppointment.doctor?.fullLocation || selectedAppointment.doctor?.location}</p>
                                 <p className="text-blue-600 m-0">{getSpecialityName(selectedAppointment.doctor)}</p>
                             </div>
@@ -288,10 +274,39 @@ const MyAppointments = () => {
 
                         {selectedAppointment.notes && (
                             <div className="p-3 border rounded-lg bg-gray-50">
-                                <span className="text-gray-400 text-xs block uppercase mb-1">Notlar</span>
+                                <span className="text-gray-400 text-xs block uppercase mb-1">Randevu Notunuz</span>
                                 <p className="text-sm text-gray-700 m-0">{selectedAppointment.notes}</p>
                             </div>
                         )}
+
+                        {/* --- YENİ BÖLÜM: SAĞLIK GEÇMİŞİ (Tamamlanan Randevular için) --- */}
+                        {selectedAppointment.status === 'completed' && selectedAppointment.healthHistory && (
+                            <div className="bg-white border-l-4 border-green-500 shadow-sm p-4 rounded-r-lg mt-2">
+                                <h4 className="text-green-700 font-bold mb-3 flex items-center gap-2">
+                                    <CheckCircleOutlined /> Muayene Raporu
+                                </h4>
+                                
+                                <div className="grid gap-3">
+                                    <div className="bg-green-50/50 p-2 rounded">
+                                        <span className="text-xs font-bold text-green-600 uppercase block mb-1">Teşhis</span>
+                                        <span className="text-gray-800 font-medium">{selectedAppointment.healthHistory.diagnosis}</span>
+                                    </div>
+                                    
+                                    <div className="bg-green-50/50 p-2 rounded">
+                                        <span className="text-xs font-bold text-green-600 uppercase block mb-1">Tedavi</span>
+                                        <span className="text-gray-800">{selectedAppointment.healthHistory.treatment}</span>
+                                    </div>
+
+                                    {selectedAppointment.healthHistory.notes && (
+                                        <div className="bg-green-50/50 p-2 rounded">
+                                            <span className="text-xs font-bold text-green-600 uppercase block mb-1">Doktor Notu</span>
+                                            <span className="text-gray-700 italic">{selectedAppointment.healthHistory.notes}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {/* ----------------------------------------------------------- */}
                     </div>
                 )}
             </Modal>
