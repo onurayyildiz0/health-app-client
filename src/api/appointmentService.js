@@ -104,6 +104,18 @@ export const completeAppointment = async (appointmentId, completionData) => {
     return response.data;
 };
 
+/**
+ * DOKTORUN DOLU SAATLERİNİ GETİR
+ * Backend Endpoint: GET /api/appointments/booked-slots
+ */
+export const getBookedSlots = async (doctorId, dateString) => {
+    // dateString formatı: YYYY-MM-DD olmalı
+    const response = await axiosInstance.get('/appointments/booked-slots', {
+        params: { doctorId, date: dateString }
+    });
+    return response.data;
+};
+
 export default {
     createAppointment,
     getAppointmentById,
@@ -114,5 +126,6 @@ export default {
     getAllAppointments,
     getMyAppointments,
     updateAppointmentStatus,
-    completeAppointment
+    completeAppointment,
+    getBookedSlots
 };

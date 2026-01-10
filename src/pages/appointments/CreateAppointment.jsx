@@ -37,6 +37,9 @@ const CreateAppointment = () => {
     const [isFetchingDoctors, setIsFetchingDoctors] = useState(false); // Yükleniyor durumu
     const [specialities, setSpecialities] = useState([]);
     const [modalVisible, setModalVisible] = useState(false);
+    
+    // YENİ: Dolu saatleri tutan state
+    const [bookedSlots, setBookedSlots] = useState([]);
 
     // --- FİLTRE STATE'LERİ (Değiştiğinde API isteği tetikler) ---
     const [searchTerm, setSearchTerm] = useState('');
@@ -99,9 +102,6 @@ const CreateAppointment = () => {
                     minPrice: minPrice || undefined,
                     maxPrice: maxPrice || undefined
                 };
-
-                // Eğer önceden seçilmiş bir doktor ID'si varsa ve filtreler boşsa, onu bulabilmek için istek atıyoruz.
-                // Ancak genel kullanımda search logic çalışır.
 
                 const response = await axiosInstance.get('/doctors', { params });
 
@@ -172,6 +172,25 @@ const CreateAppointment = () => {
 
     }, [searchTerm, selectedSpeciality, filterProvince, filterDistrict, filterNeighborhood, minPrice, maxPrice]);
 
+    // --- YENİ: Dolu Saatleri Getiren Fonksiyon ---
+    const fetchBookedSlots = async (doctorId, dateObj) => {
+        if (!doctorId || !dateObj) {
+            setBookedSlots([]);
+            return;
+        }
+        
+        try {
+            // Tarihi YYYY-MM-DD formatına çevir
+            const dateStr = dayjs(dateObj).format('YYYY-MM-DD');
+            const res = await appointmentService.getBookedSlots(doctorId, dateStr);
+            setBookedSlots(res.data || []);
+        } catch (err) {
+            console.error("Dolu saatler çekilemedi", err);
+            // Hata durumunda boş dizi dön, böylece kullanıcıya hepsi açık gibi görünür (veya hata mesajı gösterilebilir)
+            setBookedSlots([]); 
+        }
+    };
+
     // --- LOKASYON DEĞİŞİM HANDLERLARI ---
     const handleProvinceChange = async (val, option) => {
         setFilterProvince(option ? option.children : null);
@@ -216,6 +235,7 @@ const CreateAppointment = () => {
         setDistricts([]);
         setNeighborhoods([]);
         setFieldValue('doctor', '');
+        setBookedSlots([]); // Filtre temizlenince dolu saatleri de sıfırla
     };
 
     const handleSubmit = async (values) => {
@@ -242,10 +262,13 @@ const CreateAppointment = () => {
             setModalVisible(false);
             navigate('/appointment-success');
         } catch (err) {
-            console.error(err);
-            localStorage.setItem('pendingAppointment', JSON.stringify(appointmentData));
-            setModalVisible(false);
-            navigate('/appointment-failed');
+            if(err.status !== 400)
+            {
+                localStorage.setItem('pendingAppointment', JSON.stringify(appointmentData));
+                setModalVisible(false);
+                navigate('/appointment-failed');
+            }
+            message.error(err.message);
         }
     };
 
@@ -283,8 +306,6 @@ const CreateAppointment = () => {
                 >
                     {({ values, errors, touched, setFieldValue, submitForm }) => {
 
-                        // NOT: Burada artık frontend filtrelemesi yapmıyoruz.
-                        // "doctors" state'i zaten backend'den filtrelenmiş olarak geliyor.
                         const selectedDoctorData = doctors.find(d => d.id === values.doctor);
 
                         const dayIndex = values.date ? dayjs(values.date).day() : null;
@@ -422,13 +443,13 @@ const CreateAppointment = () => {
                                                             setFieldValue('date', null);
                                                             setFieldValue('start', '');
                                                             setFieldValue('end', '');
+                                                            setBookedSlots([]); // Doktor değişince eski dolu saatleri sil
                                                         }}
                                                         loading={isFetchingDoctors}
                                                         disabled={doctors.length === 0}
                                                         className="w-full"
                                                         showSearch
                                                         status={errors.doctor && touched.doctor ? "error" : ""}
-                                                        // Arama yaparken ekranda görünen tüm metin içinde (il, ilçe, branş dahil) arama yapılmasını sağlar
                                                         filterOption={(input, option) => option?.children?.toLowerCase().includes(input.toLowerCase())}
                                                     >
                                                         {doctors.map((doc) => {
@@ -465,6 +486,9 @@ const CreateAppointment = () => {
                                                             setFieldValue('date', d);
                                                             setFieldValue('start', '');
                                                             setFieldValue('end', '');
+                                                            
+                                                            // TARİH DEĞİŞTİĞİNDE DOLU SAATLERİ GETİR
+                                                            fetchBookedSlots(values.doctor, d);
                                                         }}
                                                         status={errors.date && touched.date ? "error" : ""}
                                                         disabledDate={(current) => {
@@ -506,7 +530,19 @@ const CreateAppointment = () => {
                                                         }}
                                                         status={errors.start && touched.start ? "error" : ""}
                                                     >
-                                                        {timeSlots.map(t => <Select.Option key={t} value={t}>{t}</Select.Option>)}
+                                                        {timeSlots.map(t => {
+                                                            const isBooked = bookedSlots.includes(t);
+                                                            return (
+                                                                <Select.Option 
+                                                                    key={t} 
+                                                                    value={t} 
+                                                                    disabled={isBooked}
+                                                                    className={isBooked ? "bg-gray-100 text-gray-400" : ""}
+                                                                >
+                                                                    {t} {isBooked ? '(Dolu)' : ''}
+                                                                </Select.Option>
+                                                            )
+                                                        })}
                                                     </Select>
                                                     {errors.start && touched.start && <div className="text-red-500 text-sm mt-1">{errors.start}</div>}
                                                 </div>
