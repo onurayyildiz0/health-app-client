@@ -245,7 +245,7 @@ const PatientDashboard = () => {
                                         </div>
                                         <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg">
                                             <StarFilled className="text-yellow-400 text-xs" />
-                                            <span className="text-xs font-bold text-yellow-600">{doc.rating || '5.0'}</span>
+                                            <span className="text-xs font-bold text-yellow-600">{doc.rating || '0.0'}</span>
                                         </div>
                                     </div>
                                 ))}
