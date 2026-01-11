@@ -5,7 +5,10 @@ import store from './store/store.js';
 import App from './App.jsx';
 import 'antd/dist/reset.css';
 import './index.css';
+import dayjs from 'dayjs';
+import 'dayjs/locale/tr'; // Türkçe paketini yükle
 
+dayjs.locale('tr');
 /**
  * PROVIDER NEDİR?
  * 

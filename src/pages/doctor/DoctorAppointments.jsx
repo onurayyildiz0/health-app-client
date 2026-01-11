@@ -1,298 +1,157 @@
-import { useState, useEffect } from 'react';
-import {
-    Card,
-    Table,
-    Tag,
-    Button,
-    Modal,
-    message,
-    Select,
-    Avatar,
-    Typography,
-    Tooltip,
-    Row,
-    Col,
-    Spin,
-    Empty,
-    Space,
-    Statistic,
-    Popconfirm,
-    Form,
-    Input
-} from 'antd';
-import {
-    CalendarOutlined,
-    ClockCircleOutlined,
-    CheckCircleOutlined,
-    CloseCircleOutlined,
-    UserOutlined,
-    EyeOutlined,
-    FilterOutlined,
-    StopOutlined
-} from '@ant-design/icons';
+import { useState, useEffect, useMemo } from 'react';
+import { Card, Table, Tag, Button, Modal, message, Avatar, Typography, Tooltip, Row, Col, Statistic, Popconfirm, Form, Input, Tabs, Space } from 'antd';
+import { CalendarOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, UserOutlined, EyeOutlined, SearchOutlined, StopOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import 'dayjs/locale/tr';
-import {
-    fetchAppointmentsStart,
-    fetchAppointmentsSuccess,
-    fetchAppointmentsFailure,
-    selectAllAppointments,
-    selectAppointmentLoading
+
+// Slices
+import { 
+    fetchDoctorAppointments, 
+    updateAppointmentStatus, 
+    cancelExistingAppointment,
+    completeAppointment,
+    selectAllAppointments, 
+    selectAppointmentLoading 
 } from '../../store/slices/appointmentSlice';
-import axiosInstance from '../../api/axios';
-import * as appointmentService from '../../api/appointmentService';
 
 dayjs.locale('tr');
-
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 const DoctorAppointments = () => {
     const dispatch = useDispatch();
     const appointments = useSelector(selectAllAppointments);
     const loading = useSelector(selectAppointmentLoading);
 
-    // Mevcut State'ler
+    // Local State
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [updating, setUpdating] = useState(false);
-
-    // Randevu Tamamlama Modalı State'leri
+    
+    // Filters
+    const [activeTab, setActiveTab] = useState('upcoming'); // Varsayılan: Gelecek randevular
+    const [searchText, setSearchText] = useState('');
+    
+    // Complete Modal
     const [isCompleteModalVisible, setIsCompleteModalVisible] = useState(false);
     const [completionForm] = Form.useForm();
     const [completingAppointmentId, setCompletingAppointmentId] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
-        fetchAppointments();
-        // eslint-disable-next-line
-    }, []);
+        dispatch(fetchDoctorAppointments());
+    }, [dispatch]);
 
-    const fetchAppointments = async () => {
-        try {
-            dispatch(fetchAppointmentsStart());
-            const response = await axiosInstance.get('/appointments/doctor');
-            const data = response.data.data || response.data || [];
-            dispatch(fetchAppointmentsSuccess(data));
-        } catch (err) {
-            dispatch(fetchAppointmentsFailure(err.message));
-            message.error('Randevular yüklenirken hata oluştu');
+    // --- FİLTRELEME MANTIĞI ---
+    const filteredList = useMemo(() => {
+        let list = [...appointments];
+        const today = dayjs().startOf('day');
+
+        // 1. Tab Filtresi
+        if (activeTab === 'pending') {
+            list = list.filter(a => a.status === 'pending');
+        } else if (activeTab === 'upcoming') {
+            // Gelecek = Tarihi bugün veya sonra olan VE iptal/tamamlanmış olmayanlar
+            list = list.filter(a => (dayjs(a.date).isSame(today) || dayjs(a.date).isAfter(today)) && a.status !== 'cancelled' && a.status !== 'completed' && a.status !== 'pending');
+        } else if (activeTab === 'today') {
+            list = list.filter(a => dayjs(a.date).isSame(today, 'day') && a.status !== 'cancelled');
+        } else if (activeTab === 'completed') {
+            list = list.filter(a => a.status === 'completed');
+        } else if (activeTab === 'cancelled') {
+            list = list.filter(a => a.status === 'cancelled');
         }
-    };
 
-    // Basit Durum Güncelleme (Onayla vb.)
-    const handleUpdateStatus = async (appointmentId, newStatus) => {
+        // 2. Arama Filtresi (Hasta Adı)
+        if (searchText) {
+            const lower = searchText.toLowerCase();
+            list = list.filter(a => a.patient?.name?.toLowerCase().includes(lower) || a.patient?.email?.toLowerCase().includes(lower));
+        }
+
+        // Sıralama
+        return list.sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix());
+    }, [appointments, activeTab, searchText]);
+
+    const handleUpdateStatus = async (id, status) => {
+        setActionLoading(true);
         try {
-            setUpdating(true);
-            await appointmentService.updateAppointmentStatus(appointmentId, newStatus);
+            await dispatch(updateAppointmentStatus({ id, status }));
             message.success('Randevu durumu güncellendi');
-            fetchAppointments();
             if (isModalVisible) setIsModalVisible(false);
-        } catch (err) {
-            message.error(err.message || 'Durum güncellenemedi');
+        } catch {
+            message.error('Güncelleme başarısız');
         } finally {
-            setUpdating(false);
+            setActionLoading(false);
         }
     };
 
-    // Tamamla Modalını Aç
+    const handleCancel = async (id) => {
+        setActionLoading(true);
+        try {
+            await dispatch(cancelExistingAppointment(id));
+            message.success('Randevu iptal edildi');
+            if (isModalVisible) setIsModalVisible(false);
+        } catch {
+            message.error('İptal işlemi başarısız');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const openCompletionModal = (record) => {
         setCompletingAppointmentId(record.id);
         setIsCompleteModalVisible(true);
     };
 
-    // Tamamla Formunu Gönder
     const handleCompleteSubmit = async (values) => {
+        setActionLoading(true);
         try {
-            setUpdating(true);
-            await appointmentService.completeAppointment(completingAppointmentId, values);
-            message.success('Randevu başarıyla tamamlandı ve kayıt oluşturuldu.');
+            await dispatch(completeAppointment(completingAppointmentId, values));
+            message.success('Randevu tamamlandı ve rapor oluşturuldu.');
             setIsCompleteModalVisible(false);
             completionForm.resetFields();
-            fetchAppointments(); // Listeyi yenile
-            
-            // Eğer detay modalı açıksa onu da kapat veya güncellemek istersen tekrar fetch gerekebilir
             if(isModalVisible) setIsModalVisible(false);
         } catch (err) {
-            message.error(err.response?.data?.message || 'İşlem başarısız');
+            message.error(err.response?.data?.message || err.message || 'İşlem başarısız');
         } finally {
-            setUpdating(false);
+            setActionLoading(false);
         }
     };
 
-    // İptal Etme
-    const handleCancel = async (appointmentId) => {
-        try {
-            setUpdating(true);
-            await appointmentService.cancelAppointment(appointmentId);
-            message.success('Randevu iptal edildi ve hastaya bilgilendirme gönderildi.');
-            fetchAppointments();
-            if (isModalVisible) setIsModalVisible(false);
-        } catch (err) {
-            message.error(err.response?.data?.message || 'İptal işlemi başarısız');
-        } finally {
-            setUpdating(false);
-        }
-    };
-
-    const showAppointmentDetails = (appointment) => {
-        setSelectedAppointment(appointment);
-        setIsModalVisible(true);
-    };
-
-    const getStatusColor = (status) => {
-        const colors = {
-            pending: 'orange',
-            booked: 'blue',
-            confirmed: 'blue',
-            cancelled: 'red',
-            completed: 'green'
-        };
-        return colors[status] || 'default';
-    };
-
-    const getStatusText = (status) => {
-        const texts = {
-            pending: 'Beklemede',
-            booked: 'Rezerve',
-            confirmed: 'Rezerve',
-            cancelled: 'İptal',
-            completed: 'Tamamlandı'
-        };
-        return texts[status] || status;
-    };
-
-    const getFilteredAppointments = () => {
-        const today = dayjs();
-        let filtered = [...appointments];
-
-        switch (statusFilter) {
-            case 'today':
-                filtered = filtered.filter(apt => dayjs(apt.date).isSame(today, 'day'));
-                break;
-            case 'upcoming':
-                filtered = filtered.filter(apt => 
-                    dayjs(apt.date).isAfter(today) && apt.status !== 'cancelled'
-                );
-                break;
-            case 'past':
-                filtered = filtered.filter(apt => 
-                    dayjs(apt.date).isBefore(today) || apt.status === 'completed'
-                );
-                break;
-            case 'pending':
-                filtered = filtered.filter(apt => apt.status === 'pending');
-                break;
-            default:
-                break;
-        }
-        return filtered.sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix());
-    };
-
-    const filteredList = getFilteredAppointments();
+    const getStatusColor = (s) => ({ pending: 'orange', booked: 'blue', confirmed: 'blue', cancelled: 'red', completed: 'green' }[s] || 'default');
+    const getStatusText = (s) => ({ pending: 'Onay Bekliyor', booked: 'Rezerve', confirmed: 'Rezerve', cancelled: 'İptal', completed: 'Tamamlandı' }[s] || s);
 
     const columns = [
         {
-            title: 'Hasta',
-            key: 'patient',
-            fixed: 'left',
-            width: 250,
-            render: (record) => (
+            title: 'Hasta', key: 'patient', fixed: 'left', width: 250,
+            render: (r) => (
                 <div className="flex items-center gap-3">
-                    <Avatar size={40} icon={<UserOutlined />} src={record.patient?.avatar} />
+                    <Avatar size={40} icon={<UserOutlined />} src={r.patient?.avatar} className="bg-orange-100 text-orange-600"/>
                     <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-gray-900 truncate">
-                            {record.patient?.name || 'Bilinmeyen Hasta'}
-                        </span>
-                        <span className="text-xs text-gray-500 truncate">
-                            {record.patient?.email}
-                        </span>
+                        <span className="font-medium truncate text-gray-800">{r.patient?.name || 'Bilinmeyen'}</span>
+                        <span className="text-xs text-gray-500 truncate">{r.patient?.email}</span>
                     </div>
                 </div>
             )
         },
+        { title: 'Tarih', dataIndex: 'date', width: 160, render: (d) => <span className="font-medium text-gray-600"><CalendarOutlined className="mr-2 text-blue-500"/>{dayjs(d).format('DD MMMM YYYY')}</span> },
+        { title: 'Saat', key: 'time', width: 140, render: (r) => <Tag color="blue" className="rounded px-2"><ClockCircleOutlined className="mr-1"/>{r.start.slice(0,5)} - {r.end.slice(0,5)}</Tag> },
+        { title: 'Durum', dataIndex: 'status', width: 140, render: (s) => <Tag color={getStatusColor(s)} className="rounded-full px-3 border-0 font-medium">{getStatusText(s)}</Tag> },
         {
-            title: 'Tarih',
-            dataIndex: 'date',
-            key: 'date',
-            width: 150,
-            render: (date) => (
-                <div className="font-medium text-gray-700">
-                    {dayjs(date).format('DD MMMM YYYY')}
-                </div>
-            )
-        },
-        {
-            title: 'Saat',
-            key: 'time',
-            width: 140,
-            render: (record) => (
-                <Tag icon={<ClockCircleOutlined />} color="blue" className="px-2 py-1 text-xs">
-                    {record.start.slice(0, 5)} - {record.end.slice(0, 5)}
-                </Tag>
-            )
-        },
-        {
-            title: 'Durum',
-            dataIndex: 'status',
-            key: 'status',
-            width: 120,
-            render: (status) => (
-                <Tag color={getStatusColor(status)} className="min-w-80px text-center rounded-full border-0">
-                    {getStatusText(status)}
-                </Tag>
-            )
-        },
-        {
-            title: 'İşlemler',
-            key: 'actions',
-            fixed: 'right',
-            width: 150,
-            render: (record) => (
+            title: 'İşlemler', key: 'actions', fixed: 'right', width: 160, align: 'right',
+            render: (r) => (
                 <Space size="small">
-                    <Tooltip title="Detay">
-                        <Button icon={<EyeOutlined />} size="small" onClick={() => showAppointmentDetails(record)} />
-                    </Tooltip>
+                    <Tooltip title="Detay"><Button shape="circle" icon={<EyeOutlined />} onClick={() => { setSelectedAppointment(r); setIsModalVisible(true); }} className="text-blue-500 bg-blue-50 border-blue-100" /></Tooltip>
                     
-                    {/* BEKLEYEN RANDEVULAR */}
-                    {record.status === 'pending' && (
+                    {r.status === 'pending' && (
                         <>
-                            <Tooltip title="Onayla">
-                                <Button type="primary" icon={<CheckCircleOutlined />} size="small" onClick={() => handleUpdateStatus(record.id, 'booked')} />
-                            </Tooltip>
-                            <Tooltip title="Reddet">
-                                <Popconfirm
-                                    title="Randevuyu Reddet"
-                                    description="Hastaya iptal maili gönderilecek. Onaylıyor musunuz?"
-                                    onConfirm={() => handleCancel(record.id)}
-                                    okText="Evet"
-                                    cancelText="Hayır"
-                                >
-                                    <Button danger icon={<CloseCircleOutlined />} size="small" />
-                                </Popconfirm>
-                            </Tooltip>
+                            <Tooltip title="Onayla"><Button shape="circle" type="primary" icon={<CheckCircleOutlined />} onClick={() => handleUpdateStatus(r.id, 'booked')} loading={actionLoading && completingAppointmentId === r.id} className="bg-green-500" /></Tooltip>
+                            <Popconfirm title="Reddetmek istiyor musunuz?" onConfirm={() => handleCancel(r.id)} okText="Evet" cancelText="Hayır"><Button shape="circle" danger icon={<CloseCircleOutlined />} className="bg-red-50" /></Popconfirm>
                         </>
                     )}
-
-                    {/* ONAYLI RANDEVULAR */}
-                    {(record.status === 'booked' || record.status === 'confirmed') && (
+                    
+                    {(r.status === 'booked' || r.status === 'confirmed') && (
                         <>
-                            <Tooltip title="Tamamla ve Sonuç Gir">
-                                <Button type="primary" ghost icon={<CheckCircleOutlined />} size="small" onClick={() => openCompletionModal(record)} />
-                            </Tooltip>
-                            
-                            <Tooltip title="İptal Et">
-                                <Popconfirm
-                                    title="Randevuyu İptal Et"
-                                    description="Hasta bilgilendirilecek. İşlemi onaylıyor musunuz?"
-                                    onConfirm={() => handleCancel(record.id)}
-                                    okText="Evet"
-                                    cancelText="Hayır"
-                                >
-                                    <Button danger ghost icon={<StopOutlined />} size="small" />
-                                </Popconfirm>
-                            </Tooltip>
+                            <Tooltip title="Muayeneyi Tamamla"><Button shape="circle" type="primary" icon={<CheckCircleOutlined />} onClick={() => openCompletionModal(r)} className="bg-green-600" /></Tooltip>
+                            <Popconfirm title="İptal etmek istiyor musunuz?" onConfirm={() => handleCancel(r.id)} okText="Evet" cancelText="Hayır"><Button shape="circle" danger icon={<StopOutlined />} className="bg-red-50" /></Popconfirm>
                         </>
                     )}
                 </Space>
@@ -300,280 +159,84 @@ const DoctorAppointments = () => {
         }
     ];
 
+    const tabItems = [
+        { key: 'upcoming', label: 'Yaklaşan' },
+        { key: 'today', label: 'Bugün' },
+        { key: 'completed', label: 'Tamamlanan' },
+        { key: 'all', label: 'Tümü' }
+    ];
+
     return (
         <div className="p-4 md:p-6 max-w-[1600px] mx-auto min-h-screen">
-            <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <Title level={2} className="!mb-1 !text-2xl md:!text-3xl text-gray-800">
-                        <CalendarOutlined className="mr-3 text-blue-600" />
-                        Randevu Yönetimi
-                    </Title>
-                    <Text type="secondary" className="text-base">
-                        Toplam {appointments.length} randevu kaydı
-                    </Text>
-                </div>
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div><Title level={2} className="!mb-1">Randevu Yönetimi</Title><Text type="secondary">Toplam {appointments.length} kayıt içerisinden yönetiliyor</Text></div>
             </div>
-
-            {/* İstatistikler */}
+            
+            {/* İstatistik Kartları */}
             <Row gutter={[20, 20]} className="mb-8">
-                <Col xs={24} sm={8} lg={6}>
-                    <Card bordered={false} className="shadow-sm hover:shadow-md transition-all h-full rounded-xl">
-                        <Statistic
-                            title="Bugünkü"
-                            value={appointments.filter(a => dayjs(a.date).isSame(dayjs(), 'day')).length}
-                            prefix={<CalendarOutlined className="text-blue-500 bg-blue-50 p-2.5 rounded-lg mr-2" />}
-                            valueStyle={{ fontWeight: 700 }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={8} lg={6}>
-                    <Card bordered={false} className="shadow-sm hover:shadow-md transition-all h-full rounded-xl">
-                        <Statistic
-                            title="Bekleyen"
-                            value={appointments.filter(a => a.status === 'pending').length}
-                            prefix={<ClockCircleOutlined className="text-orange-500 bg-orange-50 p-2.5 rounded-lg mr-2" />}
-                            valueStyle={{ fontWeight: 700 }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={8} lg={6}>
-                    <Card bordered={false} className="shadow-sm hover:shadow-md transition-all h-full rounded-xl">
-                        <Statistic
-                            title="Tamamlanan"
-                            value={appointments.filter(a => a.status === 'completed').length}
-                            prefix={<CheckCircleOutlined className="text-green-500 bg-green-50 p-2.5 rounded-lg mr-2" />}
-                            valueStyle={{ fontWeight: 700 }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} lg={6}>
-                    <Card bordered={false} className="shadow-sm hover:shadow-md transition-all h-full rounded-xl flex items-center">
-                        <div className="w-full">
-                            <div className="text-xs font-bold text-gray-400 mb-2 tracking-wider flex items-center gap-1">
-                                <FilterOutlined /> FİLTRELE
-                            </div>
-                            <Select
-                                value={statusFilter}
-                                onChange={setStatusFilter}
-                                size="large"
-                                variant="borderless"
-                                className="bg-gray-50 w-full rounded-lg"
-                            >
-                                <Option value="all">Tüm Randevular</Option>
-                                <Option value="today">Bugün</Option>
-                                <Option value="upcoming">Yaklaşan</Option>
-                                <Option value="past">Geçmiş</Option>
-                            </Select>
-                        </div>
-                    </Card>
-                </Col>
+                <Col xs={24} sm={8}><Card bordered={false} className="rounded-2xl shadow-sm bg-blue-50"><Statistic title="Bugünkü Randevular" value={appointments.filter(a => dayjs(a.date).isSame(dayjs(), 'day')).length} prefix={<CalendarOutlined className="text-blue-500"/>} valueStyle={{ color: '#2563eb', fontWeight: 'bold' }} /></Card></Col>
+                <Col xs={24} sm={8}><Card bordered={false} className="rounded-2xl shadow-sm bg-green-50"><Statistic title="Tamamlanan" value={appointments.filter(a => a.status === 'completed').length} prefix={<CheckCircleOutlined className="text-green-500"/>} valueStyle={{ color: '#16a34a', fontWeight: 'bold' }} /></Card></Col>
             </Row>
 
-            {/* Masaüstü Tablo */}
-            <div className="hidden md:block">
-                <Card bordered={false} className="shadow-md rounded-xl overflow-hidden">
-                    <Table
-                        columns={columns}
-                        dataSource={filteredList}
-                        rowKey="id"
-                        loading={loading}
-                        pagination={{ pageSize: 8, showTotal: (total) => `Toplam ${total} kayıt` }}
+            <Card bordered={false} className="shadow-lg rounded-2xl overflow-hidden border-0">
+                <div className="p-4 border-b border-gray-100 bg-gray-50/30">
+                    <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} className="mb-4" type="card" />
+                    <Input 
+                        placeholder="Hasta adı ile ara..." 
+                        prefix={<SearchOutlined className="text-gray-400" />} 
+                        value={searchText}
+                        onChange={e => setSearchText(e.target.value)}
+                        className="max-w-md rounded-lg py-2"
+                        allowClear
                     />
-                </Card>
-            </div>
+                </div>
+                
+                <Table 
+                    columns={columns} 
+                    dataSource={filteredList} 
+                    rowKey="id" 
+                    loading={loading} 
+                    pagination={{ pageSize: 8 }} 
+                    scroll={{ x: 800 }} 
+                    locale={{ emptyText: <div className="py-8 text-gray-400">Bu kategoride randevu bulunmuyor.</div> }}
+                />
+            </Card>
 
-            {/* Mobil Liste */}
-            <div className="md:hidden space-y-4">
-                {loading ? <div className="text-center py-10"><Spin size="large" /></div> : filteredList.map(apt => (
-                    <Card key={apt.id} bordered={false} className="shadow-sm rounded-xl">
-                        <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <Avatar size={48} icon={<UserOutlined />} src={apt.patient?.avatar} />
-                                <div>
-                                    <div className="font-bold text-gray-900">{apt.patient?.name}</div>
-                                    <div className="text-xs text-gray-500">{dayjs(apt.date).format('DD MMMM YYYY')}</div>
-                                </div>
-                            </div>
-                            <Tag color={getStatusColor(apt.status)} className="rounded-full border-0 px-3">
-                                {getStatusText(apt.status)}
-                            </Tag>
-                        </div>
-                        
-                        <div className="bg-gray-50 p-3 rounded-lg mb-4 flex justify-between items-center">
-                            <div className="flex items-center gap-2 text-blue-700 font-semibold">
-                                <ClockCircleOutlined /> {apt.start.slice(0, 5)} - {apt.end.slice(0, 5)}
-                            </div>
-                            <Button size="small" type="text" className="text-blue-600" onClick={() => showAppointmentDetails(apt)}>Detay</Button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                            {/* BEKLEYEN İŞLEMLERİ */}
-                            {apt.status === 'pending' && (
-                                <>
-                                    <Button type="primary" block onClick={() => handleUpdateStatus(apt.id, 'booked')}>Onayla</Button>
-                                    <Popconfirm title="Reddet?" onConfirm={() => handleCancel(apt.id)} okText="Evet" cancelText="Hayır">
-                                        <Button danger block>Reddet</Button>
-                                    </Popconfirm>
-                                </>
-                            )}
-                            
-                            {/* ONAYLI İŞLEMLERİ */}
-                            {(apt.status === 'booked' || apt.status === 'confirmed') && (
-                                <>
-                                     <Button type="primary" ghost block onClick={() => openCompletionModal(apt)}>Tamamla</Button>
-                                     <Popconfirm title="İptal Et?" onConfirm={() => handleCancel(apt.id)} okText="Evet" cancelText="Hayır">
-                                        <Button danger block>İptal</Button>
-                                    </Popconfirm>
-                                </>
-                            )}
-                        </div>
-                    </Card>
-                ))}
-                {!loading && filteredList.length === 0 && (
-                    <Empty description="Randevu bulunamadı" className="bg-white p-8 rounded-xl shadow-sm" />
-                )}
-            </div>
-
-            {/* Detay Modal */}
-            <Modal
-                title="Randevu Detayları"
-                open={isModalVisible}
-                onCancel={() => setIsModalVisible(false)}
-                footer={null}
-                centered
-                width={500}
-            >
-                {selectedAppointment && (
-                    <div className="space-y-6 pt-4">
-                        {/* Hasta Bilgisi */}
-                        <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                            <Avatar size={64} icon={<UserOutlined />} src={selectedAppointment.patient?.avatar} />
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-800 m-0">{selectedAppointment.patient?.name}</h3>
-                                <p className="text-gray-500 text-sm m-0">{selectedAppointment.patient?.email}</p>
-                            </div>
-                        </div>
-
-                        {/* Tarih Saat */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white border p-4 rounded-xl text-center">
-                                <div className="text-xs text-gray-400 mb-1 font-bold tracking-wide">TARİH</div>
-                                <div className="font-bold text-gray-800 text-lg">
-                                    {dayjs(selectedAppointment.date).format('DD MMMM YYYY')}
-                                </div>
-                            </div>
-                            <div className="bg-white border p-4 rounded-xl text-center">
-                                <div className="text-xs text-gray-400 mb-1 font-bold tracking-wide">SAAT</div>
-                                <div className="font-bold text-blue-600 text-lg">
-                                    {selectedAppointment.start.slice(0, 5)} - {selectedAppointment.end.slice(0, 5)}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Hasta Notu */}
-                        {selectedAppointment.notes && (
-                            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-                                <div className="text-xs text-yellow-600 font-bold mb-2 uppercase">Hasta Notu</div>
-                                <div className="text-gray-700 text-sm">{selectedAppointment.notes}</div>
-                            </div>
-                        )}
-
-                        {/* --- YENİ BÖLÜM: SAĞLIK GEÇMİŞİ (Tamamlanan Randevular için) --- */}
-                        {selectedAppointment.status === 'completed' && selectedAppointment.healthHistory && (
-                            <div className="bg-green-50 p-4 rounded-xl border border-green-200 mt-4">
-                                <div className="text-green-800 font-bold mb-3 flex items-center gap-2 border-b border-green-200 pb-2">
-                                    <CheckCircleOutlined /> MUAYENE SONUCU (Rapor)
-                                </div>
-                                <div className="space-y-3">
-                                    <div>
-                                        <span className="text-xs font-bold text-green-700 uppercase block">Teşhis</span>
-                                        <p className="text-gray-800 m-0 bg-white/60 p-2 rounded">{selectedAppointment.healthHistory.diagnosis}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-xs font-bold text-green-700 uppercase block">Tedavi</span>
-                                        <p className="text-gray-800 m-0 bg-white/60 p-2 rounded">{selectedAppointment.healthHistory.treatment}</p>
-                                    </div>
-                                    {selectedAppointment.healthHistory.notes && (
-                                        <div>
-                                            <span className="text-xs font-bold text-green-700 uppercase block">Doktor Notu</span>
-                                            <p className="text-gray-700 m-0 italic bg-white/60 p-2 rounded">{selectedAppointment.healthHistory.notes}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                        {/* ----------------------------------------------------------- */}
-
-                        {/* MODAL İÇİ AKSİYON BUTONLARI */}
-                        <div className="flex gap-3 pt-2">
-                             {selectedAppointment.status === 'pending' && (
-                                <>
-                                    <Button type="primary" block size="large" onClick={() => handleUpdateStatus(selectedAppointment.id, 'booked')} loading={updating}>Onayla</Button>
-                                    <Popconfirm title="Reddetmek istiyor musunuz?" onConfirm={() => handleCancel(selectedAppointment.id)} okText="Evet" cancelText="Hayır">
-                                        <Button danger block size="large" loading={updating}>Reddet</Button>
-                                    </Popconfirm>
-                                </>
-                            )}
-
-                            {(selectedAppointment.status === 'booked' || selectedAppointment.status === 'confirmed') && (
-                                <>
-                                    <Button type="primary" ghost block size="large" onClick={() => openCompletionModal(selectedAppointment)} loading={updating}>Tamamla</Button>
-                                    <Popconfirm title="İptal etmek istiyor musunuz?" onConfirm={() => handleCancel(selectedAppointment.id)} okText="Evet" cancelText="Hayır">
-                                        <Button danger block size="large" loading={updating}>İptal Et</Button>
-                                    </Popconfirm>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </Modal>
-
-            {/* --- YENİ: RANDEVU TAMAMLAMA FORMU (MODAL) --- */}
-            <Modal
-                title={
-                    <div className="flex items-center gap-2 text-green-700">
-                        <CheckCircleOutlined /> Randevuyu Tamamla & Sonuç Gir
-                    </div>
-                }
-                open={isCompleteModalVisible}
-                onCancel={() => setIsCompleteModalVisible(false)}
-                footer={null}
-                destroyOnClose
-                centered
-            >
+            {/* Tamamlama Modalı */}
+            <Modal title="Randevu Tamamla & Raporla" open={isCompleteModalVisible} onCancel={() => setIsCompleteModalVisible(false)} footer={null} centered destroyOnClose>
+                <div className="bg-blue-50 p-3 rounded-lg mb-4 text-sm text-blue-700">
+                    Muayene tamamlandı olarak işaretlenecek ve hasta geçmişine eklenecektir.
+                </div>
                 <Form form={completionForm} layout="vertical" onFinish={handleCompleteSubmit}>
-                    <Form.Item 
-                        name="diagnosis" 
-                        label="Teşhis (Tanı)" 
-                        rules={[{ required: true, message: 'Lütfen teşhis bilgisini giriniz.' }]}
-                    >
-                        <Input placeholder="Örn: Akut Farenjit" />
-                    </Form.Item>
-                    
-                    <Form.Item 
-                        name="treatment" 
-                        label="Uygulanan Tedavi / İlaçlar" 
-                        rules={[{ required: true, message: 'Lütfen tedavi bilgisini giriniz.' }]}
-                    >
-                        <Input.TextArea rows={3} placeholder="Örn: Antibiyotik tedavisi başlandı, istirahat verildi." />
-                    </Form.Item>
-                    
-                    <Form.Item 
-                        name="notes" 
-                        label="Ek Notlar / Reçete Detayı (Opsiyonel)"
-                    >
-                        <Input.TextArea rows={2} placeholder="Özel notlar..." />
-                    </Form.Item>
-
-                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-                        <Button onClick={() => setIsCompleteModalVisible(false)}>Vazgeç</Button>
-                        <Button type="primary" htmlType="submit" loading={updating} className="bg-green-600 hover:bg-green-700 border-green-600">
-                            Kaydet ve Tamamla
-                        </Button>
+                    <Form.Item name="diagnosis" label="Teşhis" rules={[{ required: true, message: 'Teşhis girmek zorunludur' }]}><Input placeholder="Örn: Akut Farenjit" className="rounded-lg" /></Form.Item>
+                    <Form.Item name="treatment" label="Uygulanan Tedavi / Reçete" rules={[{ required: true, message: 'Tedavi bilgisi zorunludur' }]}><Input.TextArea rows={3} placeholder="İlaçlar ve öneriler..." className="rounded-lg" /></Form.Item>
+                    <Form.Item name="notes" label="Doktor Notu (Opsiyonel)"><Input.TextArea rows={2} className="rounded-lg" /></Form.Item>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button onClick={() => setIsCompleteModalVisible(false)} className="rounded-lg">Vazgeç</Button>
+                        <Button type="primary" htmlType="submit" loading={actionLoading} className="rounded-lg">Raporu Kaydet</Button>
                     </div>
                 </Form>
             </Modal>
-            {/* ------------------------------------------- */}
+
+            {/* Detay Modalı */}
+            <Modal title="Randevu Detayı" open={isModalVisible} onCancel={() => setIsModalVisible(false)} footer={null} centered>
+                {selectedAppointment && (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <Avatar size={64} src={selectedAppointment.patient?.avatar} icon={<UserOutlined />} className="bg-orange-100 text-orange-600"/>
+                            <div>
+                                <h3 className="font-bold text-lg m-0">{selectedAppointment.patient?.name}</h3>
+                                <p className="m-0 text-gray-500">{selectedAppointment.patient?.email}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-3 rounded border border-gray-100 space-y-2">
+                            <div className="flex justify-between border-b pb-2"><span className="text-gray-500">Tarih</span><span className="font-medium">{dayjs(selectedAppointment.date).format('DD MMMM YYYY')}</span></div>
+                            <div className="flex justify-between border-b pb-2"><span className="text-gray-500">Saat</span><span className="font-medium text-blue-600">{selectedAppointment.start} - {selectedAppointment.end}</span></div>
+                            <div className="flex flex-col gap-1 pt-1"><span className="text-gray-500">Hasta Notu</span><div className="bg-gray-50 p-2 rounded text-sm text-gray-700">{selectedAppointment.notes || 'Not yok'}</div></div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };

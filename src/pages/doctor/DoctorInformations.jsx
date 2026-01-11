@@ -1,291 +1,180 @@
 import { useState, useEffect } from 'react';
-import { 
-    Card, Form, Input, Button, InputNumber, message, Spin, Row, Col, Typography, Select 
-} from 'antd';
-import { 
-    IdcardOutlined, 
-    BankOutlined, 
-    ExperimentOutlined,
-    SaveOutlined,
-    HomeOutlined
-} from '@ant-design/icons';
-import doctorService from '../../api/doctorService'; 
-import specialityService from '../../api/specialityService';
-import locationService from '../../api/locationService';
+import { Card, Form, Input, Button, InputNumber, message, Spin, Row, Col, Typography, Select } from 'antd';
+import { IdcardOutlined, BankOutlined, ExperimentOutlined, SaveOutlined, HomeOutlined } from '@ant-design/icons';
+import { useDispatch, useSelector } from 'react-redux';
+
+// Slices
+import { fetchMyDoctorProfile, updateDoctorInfo, selectCurrentDoctorProfile, selectDoctorLoading } from '../../store/slices/doctorSlice';
+import { fetchAllSpecialities, selectAllSpecialities } from '../../store/slices/specialitySlice';
+import { fetchProvinces, fetchDistricts, fetchNeighborhoods, selectProvinces, selectDistricts, selectNeighborhoods, clearDistrictsAndNeighborhoods, clearNeighborhoods } from '../../store/slices/locationSlice';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 
-// Türkçe karakter duyarlı string karşılaştırma yardımcısı
-const normalizeString = (str) => {
-    return str ? str.toLocaleLowerCase('tr-TR').trim() : '';
-};
+const normalizeString = (str) => str ? str.toLocaleLowerCase('tr-TR').trim() : '';
 
-export default function DoctorInformations() {
-    const [loading, setLoading] = useState(true);
+export default function DoctorInformation() {
+    const dispatch = useDispatch();
+    const [form] = Form.useForm();
+
+    // Selectors
+    const profile = useSelector(selectCurrentDoctorProfile);
+    const docLoading = useSelector(selectDoctorLoading);
+    const specialities = useSelector(selectAllSpecialities);
+    const provinces = useSelector(selectProvinces);
+    const districts = useSelector(selectDistricts);
+    const neighborhoods = useSelector(selectNeighborhoods);
+
     const [submitting, setSubmitting] = useState(false);
-    
-    // Alt yükleme durumları (UX için önemli)
-    const [loadingDistricts, setLoadingDistricts] = useState(false);
-    const [loadingNeighborhoods, setLoadingNeighborhoods] = useState(false);
-
-    const [specialities, setSpecialities] = useState([]);
-    const [provinces, setProvinces] = useState([]);
-    const [districts, setDistricts] = useState([]);
-    const [neighborhoods, setNeighborhoods] = useState([]);
-    
     const [selectedProvId, setSelectedProvId] = useState(null);
     const [selectedDistId, setSelectedDistId] = useState(null);
 
-    const [form] = Form.useForm();
+    // 1. Initial Fetch
+    useEffect(() => {
+        dispatch(fetchMyDoctorProfile());
+        dispatch(fetchAllSpecialities());
+        dispatch(fetchProvinces());
+    }, [dispatch]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            
-            const [profileRes, specRes, provRes] = await Promise.all([
-                doctorService.getMyDoctorProfile(),
-                specialityService.getAllSpecialities(),
-                locationService.getAllProvinces()
-            ]);
-            
-            // Veri güvenliği için varsayılan boş dizi atamaları
-            setSpecialities(specRes?.data || []);
-            const provinceList = provRes?.data || [];
-            setProvinces(provinceList);
+    // 2. Profil Yüklendiğinde Formu Doldur ve Lokasyonları Eşleştir
+    useEffect(() => {
+        if (profile) {
+            form.setFieldsValue({
+                speciality: profile.speciality?.id || profile.speciality,
+                hospital: profile.hospital,
+                experience: profile.experience,
+                about: profile.about,
+                location: profile.location,
+            });
 
-            const data = profileRes?.data || profileRes;
-
-            if (data) {
-                form.setFieldsValue({
-                    speciality: data.speciality?.id || data.speciality, // Obje veya ID gelebilir kontrolü
-                    hospital: data.hospital,
-                    experience: data.experience,
-                    about: data.about,
-                    location: data.location,
-                });
-
-                // --- Gelişmiş Lokasyon Eşleştirme ---
-                if (data.province) {
-                    // Normalize ederek arama yapıyoruz (İstanbul == Istanbul sorununu çözer)
-                    const foundProv = provinceList.find(p => normalizeString(p.name) === normalizeString(data.province));
-                    
+            // Lokasyon Eşleştirme (Karmaşık kısım)
+            const matchLocation = async () => {
+                if (profile.province && provinces.length > 0) {
+                    const foundProv = provinces.find(p => normalizeString(p.name) === normalizeString(profile.province));
                     if (foundProv) {
                         setSelectedProvId(foundProv.id);
                         form.setFieldsValue({ province: foundProv.id });
-
-                        // İlçeleri Çek
-                        try {
-                            const distRes = await locationService.getProvinceDetails(foundProv.id);
-                            // API yapısına göre esneklik: res.data.districts VEYA res.data
-                            const districtList = distRes.data?.districts || distRes.data || [];
-                            setDistricts(districtList);
-
-                            if (data.district) {
-                                const foundDist = districtList.find(d => normalizeString(d.name) === normalizeString(data.district));
-                                if (foundDist) {
-                                    setSelectedDistId(foundDist.id);
-                                    form.setFieldsValue({ district: foundDist.id });
-
-                                    // Mahalleleri Çek
-                                    const neighRes = await locationService.getNeighborhoodsByDistrict(foundDist.id);
-                                    const neighList = neighRes.data || []; // API yapısına dikkat
-                                    setNeighborhoods(neighList);
-
-                                    if (data.neighborhood) {
-                                        const foundNeigh = neighList.find(n => normalizeString(n.name) === normalizeString(data.neighborhood));
-                                        if (foundNeigh) {
-                                            form.setFieldsValue({ neighborhood: foundNeigh.id });
-                                        }
-                                    }
-                                }
-                            }
-                        } catch (locError) {
-                            console.error("Lokasyon detayları çekilemedi:", locError);
-                        }
+                        
+                        // İlçeleri çek (Thunk kullanmadan direkt servisten de çekilebilir ama slice yapısına sadık kalalım,
+                        // fakat burada zincirleme fetch gerekiyor, o yüzden await ile dispatch ediyoruz)
+                        // NOT: Slice'daki thunk'lar promise döndürmüyorsa (normalde döndürür), await çalışmayabilir.
+                        // Redux Toolkit thunk'ları promise döndürür.
+                        
+                        await dispatch(fetchDistricts(foundProv.id)); // İlçeleri yükle
+                        // İlçelerin state'e düşmesini beklemek yerine, districts selector'ı güncellenince aşağıdaki useEffect çalışır.
+                        // Ancak burada manuel fetch mantığı ile devam edelim:
                     }
                 }
-            }
-        } catch (error) {
-            console.error(error);
-            message.error("Bilgiler yüklenemedi.");
-        } finally {
-            setLoading(false);
+            };
+            matchLocation();
         }
-    };
+    }, [profile, provinces, dispatch, form]);
 
+    // 3. İlçeler yüklendiğinde profildeki ilçe ile eşleştir
     useEffect(() => {
-        fetchData();
-        // eslint-disable-next-line
-    }, []);
-
-    const handleProvinceChange = async (provId) => {
-        setSelectedProvId(provId);
-        form.setFieldsValue({ district: undefined, neighborhood: undefined });
-        setDistricts([]);
-        setNeighborhoods([]);
-        setSelectedDistId(null);
-        setLoadingDistricts(true); // Yükleniyor başlat
-
-        try {
-            const res = await locationService.getProvinceDetails(provId);
-            setDistricts(res.data?.districts || res.data || []);
-        } catch (err) {
-            message.error("İlçeler yüklenemedi.");
-        } finally {
-            setLoadingDistricts(false); // Yükleniyor bitir
+        if (profile?.district && districts.length > 0 && selectedProvId) {
+            const foundDist = districts.find(d => normalizeString(d.name) === normalizeString(profile.district));
+            if (foundDist) {
+                setSelectedDistId(foundDist.id);
+                form.setFieldsValue({ district: foundDist.id });
+                dispatch(fetchNeighborhoods(foundDist.id));
+            }
         }
+    }, [districts, profile, selectedProvId, dispatch, form]);
+
+    // 4. Mahalleler yüklendiğinde eşleştir
+    useEffect(() => {
+        if (profile?.neighborhood && neighborhoods.length > 0 && selectedDistId) {
+            const foundNeigh = neighborhoods.find(n => normalizeString(n.name) === normalizeString(profile.neighborhood));
+            if (foundNeigh) form.setFieldsValue({ neighborhood: foundNeigh.id });
+        }
+    }, [neighborhoods, profile, selectedDistId, form]);
+
+
+    const handleProvinceChange = (val) => {
+        setSelectedProvId(val);
+        form.setFieldsValue({ district: undefined, neighborhood: undefined });
+        setSelectedDistId(null);
+        dispatch(clearDistrictsAndNeighborhoods());
+        if (val) dispatch(fetchDistricts(val));
     };
 
-    const handleDistrictChange = async (distId) => {
-        setSelectedDistId(distId);
+    const handleDistrictChange = (val) => {
+        setSelectedDistId(val);
         form.setFieldsValue({ neighborhood: undefined });
-        setNeighborhoods([]);
-        setLoadingNeighborhoods(true); // Yükleniyor başlat
-
-        try {
-            const res = await locationService.getNeighborhoodsByDistrict(distId);
-            setNeighborhoods(res.data || []);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoadingNeighborhoods(false); // Yükleniyor bitir
-        }
+        dispatch(clearNeighborhoods());
+        if (val) dispatch(fetchNeighborhoods(val));
     };
 
     const onFinish = async (values) => {
+        setSubmitting(true);
         try {
-            setSubmitting(true);
-
-            // ID'den İsimlere Çevirme (Güvenli Erişim ile)
             const provObj = provinces.find(p => p.id === values.province);
             const distObj = districts.find(d => d.id === values.district);
             const neighObj = neighborhoods.find(n => n.id === values.neighborhood);
 
             const payload = {
                 ...values,
-                province: provObj?.name || null,
-                district: distObj?.name || null,
-                neighborhood: neighObj?.name || null,
+                province: provObj?.name,
+                district: distObj?.name,
+                neighborhood: neighObj?.name,
             };
 
-            await doctorService.updateDoctorInfo(payload);
-            message.success("Bilgiler başarıyla güncellendi.");
-        } catch (error) {
-            message.error(error.response?.data?.message || "Bir hata oluştu.");
+            await dispatch(updateDoctorInfo(payload));
+            message.success('Bilgiler güncellendi');
+        } catch {
+            message.error('Güncelleme başarısız');
         } finally {
             setSubmitting(false);
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-[400px]">
-                <Spin size="large" tip="Profil yükleniyor..." />
-            </div>
-        );
-    }
+    if (docLoading && !profile) return <div className="flex justify-center p-20"><Spin size="large" /></div>;
 
     return (
         <div className="p-4 md:p-6 max-w-[1000px] mx-auto">
-             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                <div>
-                    <Title level={2} className="!mb-1 !text-2xl md:!text-3xl text-gray-800">
-                        <IdcardOutlined className="mr-3 text-purple-600" />
-                        Doktor Bilgileri
-                    </Title>
-                    <Text type="secondary" className="text-base">
-                        Uzmanlık, deneyim ve konum bilgilerinizi buradan güncelleyebilirsiniz.
-                    </Text>
-                </div>
-            </div>
-
+            <div className="mb-8"><Title level={2}>Doktor Bilgileri</Title><Text type="secondary">Uzmanlık ve lokasyon bilgilerinizi güncelleyin.</Text></div>
             <Card className="shadow-md rounded-xl border-t-4 border-t-purple-500" bodyStyle={{ padding: '32px' }}>
-                <Form layout="vertical" form={form} onFinish={onFinish} requiredMark="optional">
+                <Form layout="vertical" form={form} onFinish={onFinish}>
                     <Row gutter={[24, 24]}>
-                        
-                        <Col span={24}><h3 className="text-gray-500 font-bold mb-4 border-b pb-2">Mesleki Bilgiler</h3></Col>
-
+                        <Col span={24}><h3 className="text-gray-500 font-bold mb-4 border-b pb-2">Mesleki</h3></Col>
                         <Col xs={24} md={12}>
-                            <Form.Item name="speciality" label="Uzmanlık Alanı" rules={[{ required: true, message: 'Zorunlu' }]}>
-                                <Select size="large" placeholder="Branş Seçin" showSearch filterOption={(input, option) => option.children.toLowerCase().includes(input.toLowerCase())}>
-                                    {specialities.map(spec => <Option key={spec.id} value={spec.id}>{spec.name}</Option>)}
+                            <Form.Item name="speciality" label="Branş" rules={[{ required: true }]}>
+                                <Select showSearch filterOption={(input, option) => option.children.toLowerCase().includes(input.toLowerCase())}>
+                                    {specialities.map(s => <Option key={s.id} value={s.id}>{s.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
+                        <Col xs={24} md={12}><Form.Item name="hospital" label="Hastane" rules={[{ required: true }]}><Input prefix={<BankOutlined />} /></Form.Item></Col>
+                        <Col xs={24} md={12}><Form.Item name="experience" label="Deneyim (Yıl)" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={0} /></Form.Item></Col>
 
-                        <Col xs={24} md={12}>
-                            <Form.Item name="hospital" label="Görev Yeri / Hastane" rules={[{ required: true, message: 'Zorunlu' }]}>
-                                <Input size="large" prefix={<BankOutlined className="text-gray-400" />} />
-                            </Form.Item>
-                        </Col>
-
-                        <Col xs={24} md={12}>
-                            <Form.Item name="experience" label="Deneyim (Yıl)" rules={[{ required: true, message: 'Zorunlu' }]}>
-                                <InputNumber size="large" min={0} max={70} style={{ width: '100%' }} prefix={<ExperimentOutlined className="text-gray-400" />} />
-                            </Form.Item>
-                        </Col>
-
-                        <Col span={24}><h3 className="text-gray-500 font-bold mb-4 mt-4 border-b pb-2">Lokasyon Bilgileri</h3></Col>
-
+                        <Col span={24}><h3 className="text-gray-500 font-bold mb-4 mt-4 border-b pb-2">Lokasyon</h3></Col>
                         <Col xs={24} md={8}>
-                            <Form.Item name="province" label="İl" rules={[{ required: true, message: 'Seçiniz' }]}>
-                                <Select size="large" placeholder="İl Seçiniz" onChange={handleProvinceChange} showSearch filterOption={(input, option) => option.children.toLowerCase().includes(input.toLowerCase())}>
+                            <Form.Item name="province" label="İl" rules={[{ required: true }]}>
+                                <Select showSearch onChange={handleProvinceChange} filterOption={(input, option) => option.children.toLowerCase().includes(input.toLowerCase())}>
                                     {provinces.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
-
                         <Col xs={24} md={8}>
-                            <Form.Item name="district" label="İlçe" rules={[{ required: true, message: 'Seçiniz' }]}>
-                                <Select 
-                                    size="large" 
-                                    placeholder="İlçe Seçiniz"
-                                    loading={loadingDistricts} // Yükleniyor animasyonu eklendi
-                                    disabled={!selectedProvId || loadingDistricts}
-                                    onChange={handleDistrictChange}
-                                    showSearch 
-                                    filterOption={(input, option) => option.children.toLowerCase().includes(input.toLowerCase())}
-                                >
+                            <Form.Item name="district" label="İlçe" rules={[{ required: true }]}>
+                                <Select showSearch onChange={handleDistrictChange} disabled={!selectedProvId} filterOption={(input, option) => option.children.toLowerCase().includes(input.toLowerCase())}>
                                     {districts.map(d => <Option key={d.id} value={d.id}>{d.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
-                        
                         <Col xs={24} md={8}>
-                            <Form.Item name="neighborhood" label="Mahalle" rules={[{ required: true, message: 'Seçiniz' }]}>
-                                <Select 
-                                    size="large"
-                                    placeholder="Mahalle Seçiniz"
-                                    loading={loadingNeighborhoods} // Yükleniyor animasyonu eklendi
-                                    disabled={!selectedDistId || loadingNeighborhoods}
-                                    showSearch
-                                    filterOption={(input, option) => option.children.toLowerCase().includes(input.toLowerCase())}
-                                >
+                            <Form.Item name="neighborhood" label="Mahalle" rules={[{ required: true }]}>
+                                <Select showSearch disabled={!selectedDistId} filterOption={(input, option) => option.children.toLowerCase().includes(input.toLowerCase())}>
                                     {neighborhoods.map(n => <Option key={n.id} value={n.id}>{n.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
-
-                        <Col span={24}>
-                            <Form.Item name="location" label="Açık Adres / Tarif" help="Sokak, bina no, kat veya yol tarifi bilgileri.">
-                                <Input size="large" prefix={<HomeOutlined className="text-gray-400" />} />
-                            </Form.Item>
-                        </Col>
-
-                        <Col span={24}>
-                            <Form.Item name="about" label="Hakkımda / Biyografi">
-                                <TextArea rows={4} showCount maxLength={1000} className="!resize-none text-base" />
-                            </Form.Item>
-                        </Col>
+                        <Col span={24}><Form.Item name="location" label="Açık Adres"><Input prefix={<HomeOutlined />} /></Form.Item></Col>
+                        <Col span={24}><Form.Item name="about" label="Hakkımda"><TextArea rows={4} showCount maxLength={1000} /></Form.Item></Col>
                     </Row>
-
-                    <Form.Item className="mb-0 mt-4 text-right">
-                        <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} className="bg-purple-600 hover:bg-purple-500 shadow-md min-w-[150px]">
-                            Bilgileri Kaydet
-                        </Button>
-                    </Form.Item>
+                    <div className="text-right mt-4"><Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting}>Kaydet</Button></div>
                 </Form>
             </Card>
         </div>

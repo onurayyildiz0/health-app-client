@@ -34,6 +34,14 @@ const userSlice = createSlice({
     name: 'user',
     initialState,
     reducers: {
+        resetUserState: (state) => {
+            state.profile = null;
+            state.favoriteDoctors = [];
+            state.loading = false;
+            state.error = null;
+            state.successMessage = null;
+        },
+
         // PROFİLİ YÜKLE - START
         fetchProfileStart: (state) => {
             state.loading = true;
@@ -170,7 +178,8 @@ export const {
     deleteAccountStart,
     deleteAccountSuccess,
     deleteAccountFailure,
-    clearMessages
+    clearMessages,
+    resetUserState
 } = userSlice.actions;
 
 // Selectors

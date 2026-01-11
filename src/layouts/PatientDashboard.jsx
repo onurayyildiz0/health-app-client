@@ -1,22 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Card, Row, Col, Typography, Button, Table, Tag, Avatar, Spin, Empty, Modal } from 'antd';
 import {
-    CalendarOutlined,
-    ClockCircleOutlined,
-    UserOutlined,
-    PlusOutlined,
-    CheckCircleOutlined,
-    StarFilled,
-    EyeOutlined,
-    RightOutlined
+    CalendarOutlined, ClockCircleOutlined, UserOutlined, PlusOutlined,
+    CheckCircleOutlined, StarFilled, EyeOutlined, RightOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
+
+// Selectors & Actions
 import { fetchMyAppointments, selectAllAppointments, selectAppointmentLoading } from '../store/slices/appointmentSlice';
 import { fetchFavoriteDoctors, selectFavoriteDoctors, selectUserLoading } from '../store/slices/userSlice';
 import { selectUser } from '../store/slices/authSlice';
-import specialityService from '../api/specialityService'; // EKLENDİ
+import { fetchAllSpecialities, selectAllSpecialities } from '../store/slices/specialitySlice';
 
 const { Title, Text } = Typography;
 
@@ -25,71 +21,42 @@ const PatientDashboard = () => {
     const dispatch = useDispatch();
     const user = useSelector(selectUser);
 
+    // Redux State
     const appointments = useSelector(selectAllAppointments);
     const favoriteDoctors = useSelector(selectFavoriteDoctors);
+    const specialities = useSelector(selectAllSpecialities);
     const appointmentLoading = useSelector(selectAppointmentLoading);
     const userLoading = useSelector(selectUserLoading);
 
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [specialities, setSpecialities] = useState([]); // EKLENDİ: Uzmanlık listesi state'i
 
     const [stats, setStats] = useState({
-        totalAppointments: 0,
-        completedAppointments: 0,
-        upcomingAppointments: 0,
-        cancelledAppointments: 0
+        total: 0, completed: 0, upcoming: 0, cancelled: 0
     });
 
     useEffect(() => {
-        let isMounted = true;
-        
-        const loadData = async () => {
-            if (isMounted) {
-                // 1. Randevuları Yükle
-                if (!appointments || appointments.length === 0) {
-                    await dispatch(fetchMyAppointments()).catch(() => { });
-                }
-                
-                // 2. Uzmanlıkları Yükle (YENİ)
-                try {
-                    const specRes = await specialityService.getAllSpecialities();
-                    if(isMounted) setSpecialities(specRes.data || specRes || []);
-                } catch (err) {
-                    console.error("Uzmanlıklar yüklenirken hata", err);
-                }
-            }
+        // Tüm gerekli verileri Redux üzerinden çek
+        dispatch(fetchMyAppointments());
+        dispatch(fetchAllSpecialities());
+        // Favorileri biraz gecikmeli çekebiliriz UI donmasın diye, veya direkt çekebiliriz.
+        dispatch(fetchFavoriteDoctors());
+    }, [dispatch]);
 
-            // 3. Favorileri Yükle
-            setTimeout(() => {
-                if (isMounted) {
-                    dispatch(fetchFavoriteDoctors()).catch(() => { });
-                }
-            }, 1000);
-        };
-
-        loadData();
-        return () => { isMounted = false; };
-        // eslint-disable-next-line
-    }, [dispatch]); 
-
-    // YARDIMCI FONKSİYON: Uzmanlık İsmini Bul
+    // Helper: Uzmanlık İsmini Bul (Redux listesinden)
     const getSpecialityName = (doctor) => {
         if (!doctor) return '';
-        // 1. Backend Navigation Property gönderdiyse
         if (doctor.specialityNavigation?.name) return doctor.specialityNavigation.name;
-        // 2. Speciality zaten obje olarak geldiyse
-        if (typeof doctor.speciality === 'object' && doctor.speciality?.name) return doctor.speciality.name;
-        // 3. Speciality ID ise ve listemiz varsa eşleştir
+        
+        // doctor.speciality ID ise ve listemiz varsa eşleştir
         if (specialities.length > 0) {
-            // eslint-disable-next-line
             const found = specialities.find(s => s.id == doctor.speciality);
             if (found) return found.name;
         }
-        // 4. Fallback (String gelmişse veya bulunamazsa)
-        return doctor.speciality;
+        return 'Uzman';
     };
 
+    // İstatistik Hesaplama
     useEffect(() => {
         if (appointments?.length > 0) {
             const today = dayjs().startOf('day');
@@ -102,15 +69,14 @@ const PatientDashboard = () => {
             }).length;
 
             setStats({
-                totalAppointments: appointments.length,
-                completedAppointments: appointments.filter(a => a.status === 'completed').length,
-                upcomingAppointments: upcomingCount,
-                cancelledAppointments: appointments.filter(a => a.status === 'cancelled').length
+                total: appointments.length,
+                completed: appointments.filter(a => a.status === 'completed').length,
+                upcoming: upcomingCount,
+                cancelled: appointments.filter(a => a.status === 'cancelled').length
             });
         }
     }, [appointments]);
 
-    // Tarih formatı
     const todayStr = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     // Bugünkü randevular
@@ -127,7 +93,6 @@ const PatientDashboard = () => {
         return (appointmentDate.isAfter(today) || appointmentDate.isSame(today, 'day')) && app.status === 'booked';
     }).sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix()).slice(0, 5) || [];
 
-    // Table Kolonları
     const columns = [
         {
             title: 'Doktor',
@@ -138,7 +103,6 @@ const PatientDashboard = () => {
                     <Avatar src={doctor?.user?.avatar} icon={<UserOutlined />} />
                     <div>
                         <div className="font-medium text-gray-800">Dr. {doctor?.user?.name}</div>
-                        {/* GÜNCELLENDİ: Helper fonksiyon kullanıldı */}
                         <div className="text-xs text-gray-500">{getSpecialityName(doctor)}</div>
                     </div>
                 </div>
@@ -172,7 +136,6 @@ const PatientDashboard = () => {
         }
     ];
 
-    // İstatistik Kartı Bileşeni
     const StatCard = ({ title, value, icon, bgClass }) => (
         <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl h-full">
             <div className="flex items-center justify-between">
@@ -189,7 +152,7 @@ const PatientDashboard = () => {
 
     return (
         <div className="min-h-screen pb-10">
-            {/* Header Section */}
+            {/* Header */}
             <div className="mb-8 bg-gradient-to-r from-white to-blue-50 p-6 rounded-3xl shadow-sm border border-blue-100">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div>
@@ -210,126 +173,69 @@ const PatientDashboard = () => {
                 </div>
             </div>
 
-            {/* Stats Row */}
+            {/* Stats */}
             <Row gutter={[24, 24]} className="mb-8">
                 <Col xs={24} sm={12} lg={6}>
-                    <StatCard 
-                        title="Bugünkü Randevular" 
-                        value={todayAppointments.length} 
-                        icon={<CalendarOutlined className="text-xl text-blue-600" />} 
-                        bgClass="bg-blue-100"
-                    />
+                    <StatCard title="Bugünkü Randevular" value={todayAppointments.length} icon={<CalendarOutlined className="text-xl text-blue-600" />} bgClass="bg-blue-100" />
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <StatCard 
-                        title="Yaklaşan" 
-                        value={stats.upcomingAppointments} 
-                        icon={<ClockCircleOutlined className="text-xl text-orange-500" />} 
-                        bgClass="bg-orange-100"
-                    />
+                    <StatCard title="Yaklaşan" value={stats.upcoming} icon={<ClockCircleOutlined className="text-xl text-orange-500" />} bgClass="bg-orange-100" />
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <StatCard 
-                        title="Tamamlanan" 
-                        value={stats.completedAppointments} 
-                        icon={<CheckCircleOutlined className="text-xl text-green-500" />} 
-                        bgClass="bg-green-100"
-                    />
+                    <StatCard title="Tamamlanan" value={stats.completed} icon={<CheckCircleOutlined className="text-xl text-green-500" />} bgClass="bg-green-100" />
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <StatCard 
-                        title="Favori Doktorlar" 
-                        value={favoriteDoctors?.length || 0} 
-                        icon={<StarFilled className="text-xl text-yellow-500" />} 
-                        bgClass="bg-yellow-100"
-                    />
+                    <StatCard title="Favori Doktorlar" value={favoriteDoctors?.length || 0} icon={<StarFilled className="text-xl text-yellow-500" />} bgClass="bg-yellow-100" />
                 </Col>
             </Row>
 
             <Row gutter={[24, 24]}>
-                {/* Left Content */}
+                {/* Sol Kolon: Randevular */}
                 <Col xs={24} lg={16}>
-                    {/* Today's Appointments */}
                     <div className="mb-8">
-                        <div className="flex justify-between items-center mb-4">
-                            <Title level={4} className="!mb-0 text-gray-800">Bugünkü Programım</Title>
-                        </div>
-                        
+                        <Title level={4} className="!mb-4 text-gray-800">Bugünkü Programım</Title>
                         {appointmentLoading ? (
                             <div className="text-center py-10"><Spin /></div>
                         ) : todayAppointments.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {todayAppointments.map(app => (
-                                    <Card 
-                                        key={app.id || app._id} 
-                                        className="border-0 shadow-sm rounded-2xl hover:shadow-md transition-all bg-blue-600 text-white"
-                                    >
+                                    <Card key={app.id || app._id} className="border-0 shadow-sm rounded-2xl hover:shadow-md transition-all bg-blue-600 text-white">
                                         <div className="flex items-center gap-4">
                                             <Avatar size={54} src={app.doctor?.user?.avatar} className="border-2 border-white/30" icon={<UserOutlined />} />
                                             <div className="flex-1">
                                                 <div className="font-bold text-lg">Dr. {app.doctor?.user?.name}</div>
-                                                {/* GÜNCELLEME: fullLocation kullanımı */}
-                                                <div className="text-gray-200 text-sm">{app.doctor?.fullLocation || app.doctor?.location}</div>
-                                                <div className="text-blue-200 text-sm">{getSpecialityName(app.doctor)}</div>
+                                                <div className="text-gray-800 text-sm">{app.doctor?.fullLocation || app.doctor?.location}</div>
+                                                <div className="text-blue-800 text-sm">{getSpecialityName(app.doctor)}</div>
                                                 <div className="mt-2 inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-lg">
                                                     <ClockCircleOutlined /> <span>{app.start.slice(0, 5)} - {app.end.slice(0, 5)}</span>
                                                 </div>
                                             </div>
-                                            <Button 
-                                                shape="circle" 
-                                                icon={<RightOutlined />} 
-                                                className="bg-white/20 border-0 text-white hover:bg-white hover:text-blue-600"
-                                                onClick={() => { setSelectedAppointment(app); setIsModalVisible(true); }}
-                                            />
+                                            <Button shape="circle" icon={<RightOutlined />} className="bg-white/20 border-0 text-white hover:bg-white hover:text-blue-600" onClick={() => { setSelectedAppointment(app); setIsModalVisible(true); }} />
                                         </div>
                                     </Card>
                                 ))}
                             </div>
                         ) : (
-                            <Empty 
-                                image={Empty.PRESENTED_IMAGE_SIMPLE} 
-                                description="Bugün için randevunuz bulunmuyor." 
-                                className="bg-white p-8 rounded-2xl shadow-sm border-0"
-                            />
+                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Bugün için randevunuz bulunmuyor." className="bg-white p-8 rounded-2xl shadow-sm border-0" />
                         )}
                     </div>
 
-                    {/* Upcoming Table */}
                     <Card className="border-0 shadow-sm rounded-2xl" title={<span className="font-bold text-gray-700">Yaklaşan Randevular</span>}>
-                        <Table
-                            columns={columns}
-                            dataSource={upcomingAppointments}
-                            rowKey={(record) => record.id || record._id}
-                            pagination={false}
-                            loading={appointmentLoading}
-                            locale={{ emptyText: 'Yaklaşan randevu yok' }}
-                            className="ant-table-rounded"
-                        />
-                        <Button type="link" block className="mt-2 text-gray-500 hover:text-blue-600" onClick={() => navigate('appointments')}>
-                            Tümünü Gör
-                        </Button>
+                        <Table columns={columns} dataSource={upcomingAppointments} rowKey="id" pagination={false} loading={appointmentLoading} locale={{ emptyText: 'Yaklaşan randevu yok' }} className="ant-table-rounded" />
+                        <Button type="link" block className="mt-2 text-gray-500 hover:text-blue-600" onClick={() => navigate('appointments')}>Tümünü Gör</Button>
                     </Card>
                 </Col>
 
-                {/* Right Sidebar */}
+                {/* Sağ Kolon: Favoriler */}
                 <Col xs={24} lg={8}>
-                    <Card 
-                        title={<span className="font-bold text-gray-700 flex items-center gap-2"><StarFilled className="text-yellow-400" /> Favorilerim</span>} 
-                        className="border-0 shadow-sm rounded-2xl h-full"
-                        extra={<Button type="link" onClick={() => navigate('favorites')}>Tümü</Button>}
-                    >
+                    <Card title={<span className="font-bold text-gray-700 flex items-center gap-2"><StarFilled className="text-yellow-400" /> Favorilerim</span>} className="border-0 shadow-sm rounded-2xl h-full" extra={<Button type="link" onClick={() => navigate('favorites')}>Tümü</Button>}>
                         {userLoading ? <Spin className="w-full py-4" /> : (
                             <div className="space-y-4">
                                 {favoriteDoctors?.slice(0, 4).map(doc => (
-                                    <div 
-                                        key={doc.id || doc._id} 
-                                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors border border-transparent hover:border-gray-100"
-                                        onClick={() => navigate(`/dashboard/patient/doctors/${doc.id || doc._id}`)}
-                                    >
+                                    <div key={doc.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors border border-transparent hover:border-gray-100" onClick={() => navigate(`/dashboard/patient/doctors/${doc.id}`)}>
                                         <Avatar size={48} src={doc.user?.avatar} icon={<UserOutlined />} />
                                         <div className="flex-1 min-w-0">
                                             <div className="font-semibold text-gray-800 truncate">Dr. {doc.user?.name}</div>
-                                            {/* GÜNCELLENDİ: Helper fonksiyon kullanıldı */}
                                             <div className="text-xs text-gray-500 truncate">{getSpecialityName(doc)}</div>
                                         </div>
                                         <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg">
@@ -348,41 +254,17 @@ const PatientDashboard = () => {
             </Row>
 
             {/* Detail Modal */}
-            <Modal
-                title="Randevu Detayları"
-                open={isModalVisible}
-                onCancel={() => setIsModalVisible(false)}
-                footer={null}
-                centered
-            >
+            <Modal title="Randevu Detayları" open={isModalVisible} onCancel={() => setIsModalVisible(false)} footer={null} centered>
                 {selectedAppointment && (
                     <div className="flex flex-col items-center p-4">
                         <Avatar size={80} src={selectedAppointment.doctor?.user?.avatar} icon={<UserOutlined />} className="mb-3 border-2 border-blue-100" />
                         <Title level={4} className="!mb-0">Dr. {selectedAppointment.doctor?.user?.name}</Title>
-                        {/* GÜNCELLENDİ: Helper fonksiyon kullanıldı */}
                         <Text type="secondary" className="mb-6">{getSpecialityName(selectedAppointment.doctor)}</Text>
-                        
                         <div className="w-full bg-gray-50 rounded-xl p-4 space-y-3">
-                            <div className="flex justify-between border-b pb-2 border-gray-200">
-                                <span className="text-gray-500">Tarih</span>
-                                <span className="font-medium text-gray-800">{dayjs(selectedAppointment.date).format('DD MMMM YYYY')}</span>
-                            </div>
-                            <div className="flex justify-between border-b pb-2 border-gray-200">
-                                <span className="text-gray-500">Saat</span>
-                                <span className="font-medium text-gray-800">{selectedAppointment.start.slice(0, 5)} - {selectedAppointment.end.slice(0, 5)}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-500">Durum</span>
-                                <Tag color={selectedAppointment.status === 'booked' ? 'blue' : selectedAppointment.status === 'completed' ? 'green' : 'red'}>
-                                    {selectedAppointment.status.toUpperCase()}
-                                </Tag>
-                            </div>
-                            {selectedAppointment.notes && (
-                                <div className="pt-2">
-                                    <span className="text-gray-500 block mb-1">Notlar</span>
-                                    <p className="text-sm text-gray-700 bg-white p-2 rounded border border-gray-200">{selectedAppointment.notes}</p>
-                                </div>
-                            )}
+                            <div className="flex justify-between border-b pb-2 border-gray-200"><span className="text-gray-500">Tarih</span><span className="font-medium text-gray-800">{dayjs(selectedAppointment.date).format('DD MMMM YYYY')}</span></div>
+                            <div className="flex justify-between border-b pb-2 border-gray-200"><span className="text-gray-500">Saat</span><span className="font-medium text-gray-800">{selectedAppointment.start.slice(0, 5)} - {selectedAppointment.end.slice(0, 5)}</span></div>
+                            <div className="flex justify-between items-center"><span className="text-gray-500">Durum</span><Tag color={selectedAppointment.status === 'booked' ? 'blue' : selectedAppointment.status === 'completed' ? 'green' : 'red'}>{selectedAppointment.status.toUpperCase() === "BOOKED" ? "REZERVE" : "TAMAMLANMIŞ"}</Tag></div>
+                            {selectedAppointment.notes && <div className="pt-2"><span className="text-gray-500 block mb-1">Notlar</span><p className="text-sm text-gray-700 bg-white p-2 rounded border border-gray-200">{selectedAppointment.notes}</p></div>}
                         </div>
                     </div>
                 )}

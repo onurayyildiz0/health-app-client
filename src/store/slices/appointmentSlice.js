@@ -1,19 +1,14 @@
 import { createSlice } from '@reduxjs/toolkit';
 import * as appointmentService from '../../api/appointmentService';
 
-/**
- * APPOINTMENT SLICE
- * 
- * Randevu state management'ı için Redux slice
- */
-
 const initialState = {
-    appointments: [], // Tüm randevular
-    selectedAppointment: null, // Seçili randevu (detay sayfası için)
-    loading: false, // API çağrısı yapılıyor mu?
-    error: null, // Hata mesajı
+    appointments: [], 
+    selectedAppointment: null, 
+    bookedSlots: [], 
+    loading: false, 
+    error: null, 
     filters: {
-        status: 'all', // 'all', 'pending', 'confirmed', 'cancelled', 'completed'
+        status: 'all', 
         dateRange: null
     }
 };
@@ -22,207 +17,178 @@ const appointmentSlice = createSlice({
     name: 'appointments',
     initialState,
     reducers: {
-        // FETCH APPOINTMENTS - Başlangıç
-        fetchAppointmentsStart: (state) => {
+        resetAppointmentState: (state) => {
+            state.appointments = [];
+            state.selectedAppointment = null;
+            state.bookedSlots = [];
+            state.loading = false;
+            state.error = null;
+            state.filters = { status: 'all', dateRange: null };
+        },
+        actionStart: (state) => {
             state.loading = true;
             state.error = null;
         },
-        // FETCH APPOINTMENTS - Başarılı
+        actionFailure: (state, action) => {
+            state.loading = false;
+            state.error = action.payload;
+        },
         fetchAppointmentsSuccess: (state, action) => {
             state.loading = false;
             state.appointments = action.payload;
             state.error = null;
         },
-        // FETCH APPOINTMENTS - Hata
-        fetchAppointmentsFailure: (state, action) => {
-            state.loading = false;
-            state.error = action.payload;
-        },
-
-        // CREATE APPOINTMENT - Başlangıç
-        createAppointmentStart: (state) => {
-            state.loading = true;
-            state.error = null;
-        },
-        // CREATE APPOINTMENT - Başarılı
         createAppointmentSuccess: (state, action) => {
             state.loading = false;
-            // Appointments array'i yoksa oluştur
-            if (!state.appointments) {
-                state.appointments = [];
-            }
-            state.appointments.push(action.payload); // Yeni randevuyu listeye ekle
+            if (!state.appointments) state.appointments = [];
+            state.appointments.push(action.payload);
             state.error = null;
         },
-        // CREATE APPOINTMENT - Hata
-        createAppointmentFailure: (state, action) => {
+        fetchBookedSlotsSuccess: (state, action) => {
             state.loading = false;
-            state.error = action.payload;
+            state.bookedSlots = action.payload.data || action.payload || [];
         },
-
-        // UPDATE APPOINTMENT STATUS - Başlangıç
-        updateAppointmentStatusStart: (state) => {
-            state.loading = true;
-            state.error = null;
+        clearBookedSlots: (state) => {
+            state.bookedSlots = [];
         },
-        // UPDATE APPOINTMENT STATUS - Başarılı
-        updateAppointmentStatusSuccess: (state, action) => {
+        updateAppointmentSuccess: (state, action) => {
             state.loading = false;
-            // Güncellenen randevuyu bul ve değiştir
-            const index = state.appointments.findIndex(
-                app => app._id === action.payload._id
-            );
-            if (index !== -1) {
-                state.appointments[index] = action.payload;
-            }
-            // Eğer selectedAppointment güncelleniyorsa onu da güncelle
-            if (state.selectedAppointment?._id === action.payload._id) {
+            const index = state.appointments.findIndex(app => app.id === action.payload.id); // _id veya id kontrolü
+            if (index !== -1) state.appointments[index] = action.payload;
+            if (state.selectedAppointment?.id === action.payload.id) {
                 state.selectedAppointment = action.payload;
             }
             state.error = null;
         },
-        // UPDATE APPOINTMENT STATUS - Hata
-        updateAppointmentStatusFailure: (state, action) => {
+        deleteAppointmentSuccess: (state, action) => {
             state.loading = false;
-            state.error = action.payload;
+            // Admin panelinde veya listeden silme/iptal durumunda
+            // Eğer iptal statüsü "cancelled" olarak güncelleniyorsa update, listeden kalkıyorsa filter kullanılır.
+            // Genelde iptal edilen randevular listede "İptal" olarak kalır, bu yüzden burada bir güncelleme de yapılabilir.
+            // Ancak UI'da listeden düşürmek istiyorsak:
+            state.appointments = state.appointments.filter(app => app.id !== action.payload); 
+            // Eğer statü güncellenecekse updateAppointmentSuccess kullanılmalı.
+            state.error = null;
         },
-
-        // SELECT APPOINTMENT (Detay sayfası için)
         selectAppointment: (state, action) => {
             state.selectedAppointment = action.payload;
         },
-
-        // CLEAR SELECTED APPOINTMENT
         clearSelectedAppointment: (state) => {
             state.selectedAppointment = null;
-        },
-
-        // SET FILTER
-        setFilter: (state, action) => {
-            state.filters = {
-                ...state.filters,
-                ...action.payload
-            };
-        },
-
-        // CLEAR ERROR
-        clearAppointmentError: (state) => {
-            state.error = null;
-        },
-
-        // DELETE APPOINTMENT - Başlangıç
-        deleteAppointmentStart: (state) => {
-            state.loading = true;
-            state.error = null;
-        },
-        // DELETE APPOINTMENT - Başarılı
-        deleteAppointmentSuccess: (state, action) => {
-            state.loading = false;
-            state.appointments = state.appointments.filter(
-                app => app._id !== action.payload
-            );
-            state.error = null;
-        },
-        // DELETE APPOINTMENT - Hata
-        deleteAppointmentFailure: (state, action) => {
-            state.loading = false;
-            state.error = action.payload;
         }
     }
 });
 
-// Actions export
 export const {
-    fetchAppointmentsStart,
+    resetAppointmentState,
+    actionStart,
+    actionFailure,
     fetchAppointmentsSuccess,
-    fetchAppointmentsFailure,
-    createAppointmentStart,
     createAppointmentSuccess,
-    createAppointmentFailure,
-    updateAppointmentStatusStart,
-    updateAppointmentStatusSuccess,
-    updateAppointmentStatusFailure,
+    fetchBookedSlotsSuccess,
+    clearBookedSlots,
+    updateAppointmentSuccess,
     selectAppointment,
     clearSelectedAppointment,
-    setFilter,
-    clearAppointmentError,
-    deleteAppointmentStart,
-    deleteAppointmentSuccess,
-    deleteAppointmentFailure
+    deleteAppointmentSuccess
 } = appointmentSlice.actions;
 
 // Selectors
 export const selectAllAppointments = (state) => state.appointments.appointments;
+export const selectBookedSlots = (state) => state.appointments.bookedSlots;
 export const selectAppointmentLoading = (state) => state.appointments.loading;
 export const selectAppointmentError = (state) => state.appointments.error;
 export const selectSelectedAppointment = (state) => state.appointments.selectedAppointment;
-export const selectAppointmentFilters = (state) => state.appointments.filters;
-
-// Filtered appointments selector
-export const selectFilteredAppointments = (state) => {
-    const { appointments, filters } = state.appointments;
-
-    let filtered = appointments;
-
-    // Status filter
-    if (filters.status !== 'all') {
-        filtered = filtered.filter(app => app.status === filters.status);
-    }
-
-    // Date range filter (opsiyonel, sonra eklenebilir)
-    if (filters.dateRange) {
-        // Tarih filtreleme mantığı
-    }
-
-    return filtered;
-};
 
 // Thunk Actions
 export const fetchMyAppointments = () => async (dispatch) => {
     try {
-        dispatch(fetchAppointmentsStart());
+        dispatch(actionStart());
         const response = await appointmentService.getMyAppointments();
-        // Service zaten response.data döndürüyor
         const appointments = Array.isArray(response) ? response : (response.data || []);
         dispatch(fetchAppointmentsSuccess(appointments));
     } catch (error) {
-        dispatch(fetchAppointmentsFailure(error.message || 'Randevular yüklenemedi'));
-        throw error;
+        dispatch(actionFailure(error.message || 'Randevular yüklenemedi'));
     }
 };
 
 export const createNewAppointment = (appointmentData) => async (dispatch) => {
     try {
-        dispatch(createAppointmentStart());
+        dispatch(actionStart());
         const response = await appointmentService.createAppointment(appointmentData);
         dispatch(createAppointmentSuccess(response.data));
         return response;
     } catch (error) {
-        dispatch(createAppointmentFailure(error.message || 'Randevu oluşturulamadı'));
+        dispatch(actionFailure(error.response?.data?.message || error.message || 'Randevu oluşturulamadı'));
         throw error;
+    }
+};
+
+export const fetchDoctorAppointments = () => async (dispatch) => {
+    try {
+        dispatch(actionStart());
+        const response = await appointmentService.getDoctorAppointments();
+        dispatch(fetchAppointmentsSuccess(response.data || response)); 
+    } catch (err) {
+        dispatch(actionFailure(err.message));
+    }
+};
+
+export const updateAppointmentStatus = ({ id, status }) => async (dispatch) => {
+    try {
+        dispatch(actionStart());
+        const res = await appointmentService.updateAppointmentStatus(id, status);
+        dispatch(updateAppointmentSuccess(res.data || res));
+    } catch (err) {
+        dispatch(actionFailure(err.message));
+        throw err;
+    }
+}
+
+export const fetchDoctorBookedSlots = (doctorId, dateString) => async (dispatch) => {
+    try {
+        const response = await appointmentService.getBookedSlots(doctorId, dateString);
+        dispatch(fetchBookedSlotsSuccess(response));
+    } catch (error) {
+        console.error(error);
+        dispatch(fetchBookedSlotsSuccess([]));
     }
 };
 
 export const cancelExistingAppointment = (appointmentId) => async (dispatch) => {
     try {
-        dispatch(deleteAppointmentStart());
+        dispatch(actionStart());
         await appointmentService.cancelAppointment(appointmentId);
-        dispatch(deleteAppointmentSuccess(appointmentId));
+        // İptal edilen randevunun statüsünü localde güncellemek daha iyi bir UX olabilir
+        // Ama şimdilik basitçe success dönüyoruz, component fetchAll yapabilir veya filter.
+        dispatch(deleteAppointmentSuccess(appointmentId)); // Listeden siler
     } catch (error) {
-        dispatch(deleteAppointmentFailure(error.message || 'Randevu iptal edilemedi'));
+        dispatch(actionFailure(error.message || 'Randevu iptal edilemedi'));
         throw error;
     }
 };
 
-export const rescheduleExistingAppointment = (appointmentId, newData) => async (dispatch) => {
+// --- YENİ EKLENEN THUNKS ---
+
+export const fetchAllAppointments = () => async (dispatch) => {
     try {
-        dispatch(updateAppointmentStatusStart());
-        const response = await appointmentService.rescheduleAppointment(appointmentId, newData);
-        dispatch(updateAppointmentStatusSuccess(response.data));
+        dispatch(actionStart());
+        const response = await appointmentService.getAllAppointments();
+        dispatch(fetchAppointmentsSuccess(response.data || response));
+    } catch (err) {
+        dispatch(actionFailure(err.message));
+    }
+};
+
+export const completeAppointment = (id, data) => async (dispatch) => {
+    try {
+        dispatch(actionStart());
+        const response = await appointmentService.completeAppointment(id, data);
+        dispatch(updateAppointmentSuccess(response.data || response));
         return response;
-    } catch (error) {
-        dispatch(updateAppointmentStatusFailure(error.message || 'Randevu güncellenemedi'));
-        throw error;
+    } catch (err) {
+        dispatch(actionFailure(err.response?.data?.message || err.message));
+        throw err;
     }
 };
 

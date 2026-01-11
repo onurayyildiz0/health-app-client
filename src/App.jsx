@@ -37,12 +37,15 @@ import VerifyEmailChange from './pages/VerifyEmailChange'
 import VerifyEmail from './pages/VerifyEmail'
 import DoctorInformations from './pages/doctor/DoctorInformations'
 import AdminSpeciality from './pages/admin/AdminSpeciality'
+import { ConfigProvider } from 'antd';
+import trTR from 'antd/locale/tr_TR'; // Ant Design Türkçe dil dosyası
+
 
 function App() {
 
   const loading = useSelector(selectAuthLoading);
   return (
-    <>
+    <ConfigProvider locale={trTR}>
       {/* Global Loading Spinner */}
       {loading && <LoadingSpinner tip="İşleminiz gerçekleştiriliyor..." />}
 
@@ -122,7 +125,7 @@ function App() {
           <Route path='*' element={<NotFound />} />
         </Routes>
       </Router>
-    </>
+    </ConfigProvider>
   )
 }
 

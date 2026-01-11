@@ -18,8 +18,12 @@ import {
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout, selectUser } from '../store/slices/authSlice';
+import { resetAppointmentState } from '../store/slices/appointmentSlice'; // EKLENDİ
 import authService from '../api/authService';
-
+import { resetDoctorState } from '../store/slices/doctorSlice';
+import { resetUserState } from '../store/slices/userSlice';
+import { resetReviewState } from '../store/slices/reviewSlice';
+import { resetLocationState } from '../store/slices/locationSlice';
 
 const { Header, Sider, Content } = Layout;
 
@@ -29,10 +33,8 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
     const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
     const dispatch = useDispatch();
 
-    // Redux'tan gerçek kullanıcı bilgisini al
     const user = useSelector(selectUser);
 
-    // LocalStorage'dan direkt avatar okuma
     const getUserAvatar = () => {
         try {
             const storedUser = localStorage.getItem('user');
@@ -48,7 +50,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
 
     const currentAvatar = getUserAvatar();
 
-    // Rol bazlı menü items
     const getMenuItems = () => {
         const basePath = `/dashboard/${userRole}`;
 
@@ -100,14 +101,12 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     label: 'Randevularım',
                     onClick: () => navigate(`${basePath}/appointments`)
                 },
-                // --- YENİ EKLENEN KISIM ---
                 {
                     key: `${basePath}/info`,
-                    icon: <MedicineBoxOutlined />, // İkonu import etmeyi unutmayın
+                    icon: <MedicineBoxOutlined />,
                     label: 'Doktor Bilgileri',
                     onClick: () => navigate(`${basePath}/info`)
                 },
-                // --------------------------
                 {
                     key: `${basePath}/schedule`,
                     icon: <ClockCircleOutlined />,
@@ -150,7 +149,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
         return commonItems;
     };
 
-    // User dropdown menu
     const userMenuItems = [
         {
             key: 'settings',
@@ -166,14 +164,21 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
             label: 'Çıkış Yap',
             icon: <LogoutOutlined />,
             danger: true,
+            // GÜNCELLENEN LOGOUT MANTIĞI
             onClick: async () => {
                 try {
-                    // 1. Backend'e logout isteği at (token'ı blacklist'e ekle)
                     await authService.logout();
                 } catch {
                     // Hata olsa bile devam et
                 } finally {
-                    // 2. Redux'tan user ve token'ı temizle
+                    // 1. Randevu verilerini temizle (Veri karışıklığını önlemek için)
+                    dispatch(resetAppointmentState());
+                    dispatch(resetDoctorState());
+                    dispatch(resetUserState());
+                    dispatch(resetReviewState());
+                    dispatch(resetLocationState());
+                    
+                    // 2. Auth verilerini temizle
                     dispatch(logout());
 
                     // 3. Login sayfasına yönlendir
@@ -203,7 +208,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
 
     return (
         <Layout className='min-h-screen'>
-            {/* Mobile Drawer */}
             <Drawer
                 placement="left"
                 onClose={() => setMobileDrawerOpen(false)}
@@ -212,7 +216,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                 width={250}
                 styles={{ body: { padding: 0 } }}
             >
-                {/* Logo */}
                 <div className='h-16 flex items-center justify-center border-b border-gray-200'>
                     <div className='flex items-center gap-2'>
                         <div className={`w-10 h-10 bg-gradient-to-r ${getRoleColor()} rounded-full flex items-center justify-center shadow-lg`}>
@@ -224,7 +227,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     </div>
                 </div>
 
-                {/* Menu */}
                 <Menu
                     mode="inline"
                     selectedKeys={[location.pathname]}
@@ -233,7 +235,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                 />
             </Drawer>
 
-            {/* Desktop Sidebar */}
             <Sider
                 trigger={null}
                 className='!bg-white shadow-lg hidden lg:block'
@@ -244,7 +245,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     flex: '0 0 250px'
                 }}
             >
-                {/* Logo */}
                 <div className='h-16 flex items-center justify-center border-b border-gray-200'>
                     <div className='flex items-center gap-2'>
                         <div className={`w-10 h-10 bg-gradient-to-r ${getRoleColor()} rounded-full flex items-center justify-center shadow-lg`}>
@@ -256,7 +256,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     </div>
                 </div>
 
-                {/* Menu */}
                 <Menu
                     mode="inline"
                     selectedKeys={[location.pathname]}
@@ -265,13 +264,9 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                 />
             </Sider>
 
-            {/* Main Layout */}
             <Layout>
-                {/* Header */}
                 <Header className='!bg-white shadow-sm !px-4 lg:!px-6 flex items-center justify-between'>
-                    {/* Left Side - Mobile Menu Button */}
                     <div className='lg:hidden'>
-                        {/* Mobile Menu Button - Only on mobile */}
                         <Button
                             type="text"
                             icon={<MenuUnfoldOutlined />}
@@ -280,9 +275,7 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                         />
                     </div>
 
-                    {/* Right Side - ml-auto ensures it stays on the right on desktop */}
                     <div className='flex items-center gap-4 ml-auto'>
-                        {/* User Dropdown */}
                         <Dropdown
                             menu={{ items: userMenuItems }}
                             placement="bottomRight"
@@ -318,7 +311,6 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
                     </div>
                 </Header>
 
-                {/* Content */}
                 <Content className='m-4 lg:m-6 p-4 lg:p-6 bg-gray-50 rounded-lg min-h-[calc(100vh-88px)]'>
                     <div className='max-w-[1600px] mx-auto'>
                         {children || <Outlet />}

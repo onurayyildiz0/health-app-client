@@ -5,6 +5,8 @@ import doctorReducer from './slices/doctorSlice';
 import reviewReducer from './slices/reviewSlice';
 import adminReducer from './slices/adminSlice';
 import userReducer from './slices/userSlice';
+import specialityReducer from './slices/specialitySlice'
+import locationReducer from './slices/locationSlice'
 
 /**
  * REDUX STORE NEDİR?
@@ -48,6 +50,10 @@ const store = configureStore({
 
         // user: userReducer → state.user olarak erişilebilir
         user: userReducer,
+
+        speciality: specialityReducer,
+
+        location: locationReducer
     },
 });
 

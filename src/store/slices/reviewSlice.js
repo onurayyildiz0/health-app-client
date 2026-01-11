@@ -30,6 +30,13 @@ const reviewSlice = createSlice({
     name: 'review',
     initialState,
     reducers: {
+        resetReviewState: (state) => {
+            state.reviews = [];
+            state.loading = false;
+            state.error = null;
+            state.successMessage = null;
+        },
+
         // DEĞERLENDİRME YÜKLE - START
         fetchReviewsStart: (state) => {
             state.loading = true;
@@ -120,7 +127,8 @@ export const {
     deleteReviewStart,
     deleteReviewSuccess,
     deleteReviewFailure,
-    clearMessages
+    clearMessages,
+    resetReviewState
 } = reviewSlice.actions;
 
 // Selectors
