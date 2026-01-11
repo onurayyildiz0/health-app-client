@@ -334,7 +334,14 @@ const CreateAppointment = () => {
                                     <Card className="shadow-lg border-0 rounded-2xl h-full bg-gradient-to-b from-blue-50 to-white">
                                         {!selectedDoctorData ? <div className="h-full flex flex-col items-center justify-center text-gray-400 py-12 text-center"><MedicineBoxOutlined className="text-6xl mb-4 opacity-30" /><p>Detayları görmek için<br />bir doktor seçiniz.</p></div> : (
                                             <div className="animate-fade-in w-full">
-                                                <div className="flex items-center gap-4 mb-4"><Avatar size={80} src={selectedDoctorData.user?.avatar} icon={<UserOutlined />} className="shadow-md border-4 border-white shrink-0" /><div className="text-left"><Title level={4} className="!mb-0 !mt-0 !text-lg">Dr. {selectedDoctorData.user?.name}</Title><Tag color="blue" className="mt-1 border-0">{getDocSpecialityName(selectedDoctorData)}</Tag></div></div>
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <Avatar size={80} src={selectedDoctorData.user?.avatar} icon={<UserOutlined />} className="shadow-md border-4 border-white shrink-0" />
+                                                    <div className="text-left">
+                                                        <Title level={4} className="!mb-0 !mt-0 !text-lg">Dr. {selectedDoctorData.user?.name}</Title>
+                                                        <Tag color="blue" className="mt-1 border-0">{getDocSpecialityName(selectedDoctorData)}</Tag>
+                                                        <span>{selectedDoctorData.user?.email}</span>
+                                                    </div>
+                                                </div>
                                                 <Divider className="my-4" />
                                                 <div className="w-full space-y-4 text-left">
                                                     <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-blue-50 shadow-sm"><EnvironmentOutlined className="mt-1 text-red-500 text-lg" /><div><span className="block text-xs font-bold text-gray-400 uppercase">Konum</span><span className="text-gray-700 font-medium">{selectedDoctorData.fullLocation || selectedDoctorData.location || 'Konum belirtilmemiş'}</span></div></div>

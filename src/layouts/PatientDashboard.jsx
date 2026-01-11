@@ -87,10 +87,15 @@ const PatientDashboard = () => {
     }) || [];
 
     // Yaklaşan randevular (Table için)
+    const today = dayjs().startOf('day');
+    const nextWeek = today.add(7, 'day'); // 7 günlük sınır
+
     const upcomingAppointments = appointments?.filter(app => {
         const appointmentDate = dayjs(app.date);
-        const today = dayjs().startOf('day');
-        return (appointmentDate.isAfter(today) || appointmentDate.isSame(today, 'day')) && app.status === 'booked';
+        
+        return (appointmentDate.isAfter(today) || appointmentDate.isSame(today, 'day')) 
+            && appointmentDate.isBefore(nextWeek) // <-- BU KISIM EKLENDİ (7 Gün sınırı)
+            && app.status === 'booked';
     }).sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix()).slice(0, 5) || [];
 
     const columns = [
