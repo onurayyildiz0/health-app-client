@@ -13,8 +13,17 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 
 // Slices
-import { fetchDoctorDetails, selectSelectedDoctor, selectDoctorReviews, selectDoctorLoading } from '../../store/slices/doctorSlice';
-import { fetchDoctorReviews, submitReview } from '../../store/slices/reviewSlice';
+import { 
+    fetchDoctorDetails, 
+    selectSelectedDoctor, 
+    selectDoctorLoading 
+} from '../../store/slices/doctorSlice';
+
+import { 
+    fetchDoctorReviews, 
+    submitReview, 
+    selectAllReviews // Bu selector'ı ekledik
+} from '../../store/slices/reviewSlice';
 import { addFavoriteDoctorSuccess, removeFavoriteDoctorSuccess, selectFavoriteDoctors } from '../../store/slices/userSlice';
 import { selectUser } from '../../store/slices/authSlice';
 import { fetchAllSpecialities, selectAllSpecialities } from '../../store/slices/specialitySlice';
@@ -33,7 +42,7 @@ const DoctorDetail = () => {
     const [form] = Form.useForm();
 
     const doctor = useSelector(selectSelectedDoctor);
-    const reviews = useSelector(selectDoctorReviews);
+    const reviews = useSelector(selectAllReviews);
     const loading = useSelector(selectDoctorLoading);
     const user = useSelector(selectUser);
     const favoriteDoctors = useSelector(selectFavoriteDoctors);
@@ -186,7 +195,7 @@ const DoctorDetail = () => {
                                 <div className="flex flex-col gap-6">
                                     {reviews.map(review => (
                                         <div key={review.id} className="bg-white">
-                                            <div className="flex items-start gap-4"><Avatar src={review.patient?.avatar} icon={<UserOutlined />} className="bg-blue-100 text-blue-600 mt-1" /><div className="flex-1"><div className="flex justify-between items-center mb-1"><Text strong>{review.patient?.name || 'Anonim Hasta'}</Text><Text type="secondary" className="text-xs">{dayjs(review.createdAt).format('DD.MM.YYYY')}</Text></div><Rate disabled value={review.rating} style={{ fontSize: 14 }} className="mb-2 block" /><Paragraph className="text-gray-600 mb-0">{review.comment}</Paragraph></div></div><div className="border-b border-gray-100 mt-4 w-full" />
+                                            <div className="flex items-start gap-4"><Avatar src={review.patient?.avatar ? review.patient?.avatar : null} icon={<UserOutlined />} className="bg-blue-100 text-blue-600 mt-1" /><div className="flex-1"><div className="flex justify-between items-center mb-1"><Text strong>{review.patient?.name || 'Anonim Hasta'}</Text><Text type="secondary" className="text-xs">{dayjs(review.createdAt).format('DD.MM.YYYY')}</Text></div><Rate disabled value={review.rating} style={{ fontSize: 14 }} className="mb-2 block" /><Paragraph className="text-gray-600 mb-0">{review.comment}</Paragraph></div></div><div className="border-b border-gray-100 mt-4 w-full" />
                                         </div>
                                     ))}
                                 </div>
