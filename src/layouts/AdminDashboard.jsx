@@ -54,7 +54,7 @@ const AdminDashboard = () => {
             <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4'>
                 <div>
                     <Title level={2} className='!mb-1 !text-2xl md:!text-3xl'>Hoş Geldiniz, {user?.name} 👋</Title>
-                    <Text type="secondary" className='text-sm md:text-base'>{today}</Text>
+                    <Text type="secondary" className='text-sm md:text-base'>Bugün {today}</Text>
                 </div>
                 <Button type="primary" icon={<UserAddOutlined />} size="large" onClick={() => setIsModalVisible(true)} className="w-full md:w-auto">Yeni Yönetici Ekle</Button>
             </div>

@@ -164,7 +164,7 @@ const PatientDashboard = () => {
                         <Title level={2} className="!mb-1 !text-gray-800">
                             Hoş Geldiniz, {user?.name} 👋
                         </Title>
-                        <Text className="text-gray-500 text-lg">{todayStr}</Text>
+                        <Text className="text-gray-500 text-lg">Bugün {todayStr}</Text>
                     </div>
                     <Button 
                         type="primary" 

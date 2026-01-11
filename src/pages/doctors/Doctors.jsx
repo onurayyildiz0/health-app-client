@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAllDoctors } from '../../api/doctorService';
-import { Card, Row, Col, Typography, Avatar, Button, Tag, Rate } from 'antd';
+import { Card, Row, Col, Typography, Avatar, Button, Tag, Rate, Tooltip } from 'antd'; // Tooltip eklendi
 import { UserOutlined, CalendarOutlined, EnvironmentOutlined, HeartOutlined } from '@ant-design/icons';
 import Navbar from '../../components/Navbar';
 import { Link, useNavigate } from 'react-router-dom';
@@ -25,7 +25,7 @@ const Doctors = () => {
             <Navbar />
             <div className="min-h-screen bg-gray-50">
                 {/* Public Header */}
-                <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-teal-500 text-white py-16 md:py-24 rounded-b-[2rem] shadow-lg mb-12">
+                <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-teal-600 text-white py-16 md:py-24 rounded-b-[2rem] shadow-lg mb-12">
                     <div className="container mx-auto px-4 text-center">
                         <Title level={1} className="!text-white !mb-4">Uzman Doktorlarımız</Title>
                         <Paragraph className="!text-blue-100 text-lg max-w-2xl mx-auto">
@@ -38,47 +38,65 @@ const Doctors = () => {
                     {loading ? (
                         <div className="text-center py-20 text-gray-500">Yükleniyor...</div>
                     ) : (
-                        <Row gutter={[24, 24]}>
+                        <Row gutter={[24, 24]} align="stretch">
                             {doctors.length === 0 ? (
                                 <Col span={24} className="text-center text-gray-500">Kayıtlı doktor bulunamadı.</Col>
                             ) : (
                                 doctors.map((doctor) => (
-                                    <Col xs={24} sm={12} lg={8} xl={6} key={doctor.id}>
+                                    <Col xs={24} sm={12} lg={8} xl={6} key={doctor.id} className="flex">
                                         <Card
                                             hoverable
-                                            className="h-full border-0 shadow-md hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden group"
-                                            bodyStyle={{ padding: 0 }}
+                                            className="w-full border-0 shadow-md hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden group"
+                                            bodyStyle={{ padding: 0, height: '100%' }}
                                         >
-                                            <div className="p-6 text-center bg-white group-hover:bg-blue-50 transition-colors duration-300">
-                                                <Avatar
-                                                    size={100}
-                                                    src={doctor.user?.avatar}
-                                                    className="mb-4 shadow-md border-4 border-white"
-                                                    icon={<UserOutlined />}
-                                                />
-                                                <Title level={4} className="!mb-1 !text-gray-800">{doctor.user?.name || 'Doktor'}</Title>
-                                                <Tag color="blue" className="mb-3 rounded-full border-0">{doctor.specialityNavigation.name}</Tag>
-                                                <div className='flex justify-center mb-1'>
-                                                    <Rate disabled defaultValue={doctor.rating || 0} className='text-sm text-yellow-400' />
-                                                </div>
-                                            </div>
-                                            <div className="px-6 pb-6 bg-white group-hover:bg-blue-50 transition-colors duration-300">
-                                                {doctor.fullLocation && (
-                                                    <div className="flex items-center justify-center gap-2 text-gray-500 text-sm mb-4">
-                                                        <EnvironmentOutlined />
-                                                        <span className="text-wrap truncate max-w-[200px]">{doctor.fullLocation}</span>
+                                            <div className="flex flex-col h-full justify-between">
+                                                
+                                                {/* Üst Kısım */}
+                                                <div className="p-6 text-center bg-white group-hover:bg-blue-50 transition-colors duration-300">
+                                                    <Avatar
+                                                        size={100}
+                                                        src={doctor.user?.avatar}
+                                                        className="mb-4 shadow-md border-4 border-white"
+                                                        icon={<UserOutlined />}
+                                                    />
+                                                    <div className="min-h-[60px] flex items-center justify-center">
+                                                        <Title level={4} className="!mb-1 !text-gray-800 line-clamp-2">{doctor.user?.name || 'Doktor'}</Title>
                                                     </div>
-                                                )}
-                                                <Button
-                                                    type="primary"
-                                                    block
-                                                    size="large"
-                                                    className="rounded-xl font-semibold shadow-blue-200 shadow-lg"
-                                                    icon={<CalendarOutlined />}
-                                                    onClick={() => navigate('/login')}
-                                                >
-                                                    Randevu Al
-                                                </Button>
+                                                    
+                                                    <Tag color="blue" className="mb-3 rounded-full border-0">{doctor.specialityNavigation.name}</Tag>
+                                                    
+                                                    <div className='flex justify-center mb-1'>
+                                                        <Rate disabled defaultValue={doctor.rating || 0} className='text-sm text-yellow-400' />
+                                                    </div>
+                                                </div>
+
+                                                {/* Alt Kısım */}
+                                                <div className="px-6 pb-6 bg-white group-hover:bg-blue-50 transition-colors duration-300">
+                                                    <div className="min-h-[24px] mb-4 flex justify-center">
+                                                        {doctor.fullLocation ? (
+                                                            // Tooltip Bileşeni Eklendi
+                                                            <Tooltip title={doctor.fullLocation} placement="top">
+                                                                <div className="flex items-center justify-center gap-2 text-gray-500 text-sm cursor-pointer hover:text-blue-600 transition-colors">
+                                                                    <EnvironmentOutlined />
+                                                                    <span className="truncate max-w-[200px]">{doctor.fullLocation}</span>
+                                                                </div>
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <div className="h-5"></div>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    <Button
+                                                        type="primary"
+                                                        block
+                                                        size="large"
+                                                        className="rounded-xl font-semibold shadow-blue-200 shadow-lg mt-auto"
+                                                        icon={<CalendarOutlined />}
+                                                        onClick={() => navigate('/login')}
+                                                    >
+                                                        Randevu Al
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </Card>
                                     </Col>
@@ -88,35 +106,35 @@ const Doctors = () => {
                     )}
                 </div>
                 {/* Footer */}
-                                <footer className='bg-slate-900 text-white py-16 rounded-t-[3rem]'>
-                                    <div className='container mx-auto px-6'>
-                                        <Row gutter={[48, 48]}>
-                                            <Col xs={24} md={12} lg={8}>
-                                                <div className='flex items-center gap-2 mb-6'>
-                                                    <div className='w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center'><HeartOutlined className='text-xl' /></div>
-                                                    <span className='text-2xl font-bold'>HealthApp</span>
-                                                </div>
-                                                <p className='text-slate-400 leading-relaxed'>Sağlığınız bizim için her şeyden önemli. Teknolojinin gücüyle sağlık hizmetlerini parmaklarınızın ucuna getiriyoruz.</p>
-                                            </Col>
-                                            <Col xs={24} md={12} lg={8}>
-                                                <h4 className='text-lg font-bold mb-6'>Hızlı Erişim</h4>
-                                                <div className='grid grid-cols-1 gap-3'>
-                                                    <Link to="/doctors" className='text-slate-400 hover:text-white transition-colors'>Doktorlar</Link>
-                                                    <Link to="/about" className='text-slate-400 hover:text-white transition-colors'>Hakkımızda</Link>
-                                                    <Link to="/login" className='text-slate-400 hover:text-white transition-colors'>Giriş Yap</Link>
-                                                </div>
-                                            </Col>
-                                            <Col xs={24} md={12} lg={8}>
-                                                <h4 className='text-lg font-bold mb-6'>İletişim</h4>
-                                                <p className='text-slate-400 mb-2'>support@healthapp.com</p>
-                                                <p className='text-slate-400'>+90 212 555 00 00</p>
-                                            </Col>
-                                        </Row>
-                                        <div className='border-t border-slate-800 mt-12 pt-8 text-center text-slate-500 text-sm'>
-                                            &copy; 2025 HealthApp. Tüm hakları saklıdır.
-                                        </div>
-                                    </div>
-                                </footer>
+                <footer className='bg-slate-900 text-white py-16 rounded-t-[3rem]'>
+                    <div className='container mx-auto px-6'>
+                        <Row gutter={[48, 48]}>
+                            <Col xs={24} md={12} lg={8}>
+                                <div className='flex items-center gap-2 mb-6'>
+                                    <div className='w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center'><HeartOutlined className='text-xl' /></div>
+                                    <span className='text-2xl font-bold'>HealthApp</span>
+                                </div>
+                                <p className='text-slate-400 leading-relaxed'>Sağlığınız bizim için her şeyden önemli. Teknolojinin gücüyle sağlık hizmetlerini parmaklarınızın ucuna getiriyoruz.</p>
+                            </Col>
+                            <Col xs={24} md={12} lg={8}>
+                                <h4 className='text-lg font-bold mb-6'>Hızlı Erişim</h4>
+                                <div className='grid grid-cols-1 gap-3'>
+                                    <Link to="/doctors" className='text-slate-400 hover:text-white transition-colors'>Doktorlar</Link>
+                                    <Link to="/about" className='text-slate-400 hover:text-white transition-colors'>Hakkımızda</Link>
+                                    <Link to="/login" className='text-slate-400 hover:text-white transition-colors'>Giriş Yap</Link>
+                                </div>
+                            </Col>
+                            <Col xs={24} md={12} lg={8}>
+                                <h4 className='text-lg font-bold mb-6'>İletişim</h4>
+                                <p className='text-slate-400 mb-2'>support@healthapp.com</p>
+                                <p className='text-slate-400'>+90 212 555 00 00</p>
+                            </Col>
+                        </Row>
+                        <div className='border-t border-slate-800 mt-12 pt-8 text-center text-slate-500 text-sm'>
+                            &copy; 2025 HealthApp. Tüm hakları saklıdır.
+                        </div>
+                    </div>
+                </footer>
             </div>
         </>
     );

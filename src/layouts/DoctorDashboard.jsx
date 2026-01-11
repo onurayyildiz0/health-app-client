@@ -8,8 +8,9 @@ import dayjs from 'dayjs';
 // Slices & Actions
 import { selectUser } from '../store/slices/authSlice';
 import { 
-    fetchDoctorAppointments, // Bu thunk appointmentSlice'ta tanımlı olmalı (aşağıda kontrol edin)
+    fetchDoctorAppointments, 
     updateAppointmentStatus, 
+    completeAppointment, // EKLENDİ: Tamamlama işlemi için gerekli
     selectAllAppointments, 
     selectAppointmentLoading 
 } from '../store/slices/appointmentSlice';
@@ -27,26 +28,57 @@ const DoctorDashboard = () => {
     const appLoading = useSelector(selectAppointmentLoading);
     const docLoading = useSelector(selectDoctorLoading);
 
-    // Modal State
+    // İzin Modal State
     const [isTimeOffModalVisible, setIsTimeOffModalVisible] = useState(false);
     const [timeOffForm] = Form.useForm();
+
+    // --- YENİ EKLENEN STATE'LER (Randevu Tamamlama İçin) ---
+    const [isCompleteModalVisible, setIsCompleteModalVisible] = useState(false);
+    const [completionForm] = Form.useForm();
+    const [completingAppointmentId, setCompletingAppointmentId] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false); // Tamamlama işlemi loading'i
 
     const todayStr = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     // 1. Randevuları Yükle
     useEffect(() => {
-        // fetchDoctorAppointments thunk'ını appointmentSlice'a eklediğimizi varsayıyoruz (Eğer yoksa eklenmeli)
         dispatch(fetchDoctorAppointments());
     }, [dispatch]);
 
-    // 2. Randevu Durumu Güncelle
-    const handleStatusUpdate = async (appointmentId, status) => {
+    // 2. Sadece İptal İşlemi İçin (Tamamlama işlemi ayrıldı)
+    const handleCancelAppointment = async (appointmentId) => {
         try {
-            await dispatch(updateAppointmentStatus({ id: appointmentId, status }));
-            message.success(status === 'completed' ? 'Randevu tamamlandı.' : 'Randevu iptal edildi.');
-            dispatch(fetchDoctorAppointments()); // Listeyi tazele
+            await dispatch(updateAppointmentStatus({ id: appointmentId, status: 'cancelled' }));
+            message.success('Randevu iptal edildi.');
+            dispatch(fetchDoctorAppointments());
         } catch (error) {
-            message.error('İşlem başarısız.');
+            message.error('İptal işlemi başarısız.');
+        }
+    };
+
+    // --- YENİ FONKSİYONLAR (Randevu Tamamlama) ---
+    const openCompletionModal = (appointmentId) => {
+        setCompletingAppointmentId(appointmentId);
+        setIsCompleteModalVisible(true);
+    };
+
+    const handleCompleteSubmit = async (values) => {
+        setActionLoading(true);
+        try {
+            // updateAppointmentStatus yerine completeAppointment kullanıyoruz
+            await dispatch(completeAppointment(completingAppointmentId, values));
+            
+            message.success('Randevu başarıyla tamamlandı ve rapor oluşturuldu.');
+            setIsCompleteModalVisible(false);
+            completionForm.resetFields();
+            
+            // Listeyi güncelle
+            dispatch(fetchDoctorAppointments()); 
+        } catch (err) {
+            // Hata mesajını slice'tan veya error objesinden alabiliriz
+            message.error(err.response?.data?.message || err.message || 'İşlem başarısız');
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -62,7 +94,7 @@ const DoctorDashboard = () => {
             setIsTimeOffModalVisible(false);
             timeOffForm.resetFields();
         } catch (error) {
-            // Hata mesajı slice içinde handle ediliyor veya burada gösteriliyor
+            // Hata handling slice içinde olabilir
         }
     };
 
@@ -74,7 +106,7 @@ const DoctorDashboard = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                     <Title level={2} className='!mb-1 !text-2xl md:!text-3xl text-gray-800'>Hoş Geldiniz, Dr. {user?.name} 👋</Title>
-                    <Text type="secondary" className='text-base'>{todayStr} • İyi çalışmalar dileriz.</Text>
+                    <Text type="secondary" className='text-base'>Bugün {todayStr} • İyi çalışmalar dileriz.</Text>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
                     <Button size="large" icon={<RestOutlined />} onClick={() => setIsTimeOffModalVisible(true)} className="flex-1 md:flex-none shadow-sm">İzin Ekle</Button>
@@ -120,10 +152,12 @@ const DoctorDashboard = () => {
                                     <Tag color={appointment.status === 'completed' ? 'success' : appointment.status === 'cancelled' ? 'error' : 'processing'} className="m-0 rounded-full px-3 border-0">{appointment.status === 'booked' ? 'Aktif' : appointment.status}</Tag>
                                 </div>
                                 {appointment.notes && <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-100 mb-4"><span className="font-medium text-gray-900">Not:</span> {appointment.notes}</div>}
+                                
                                 {appointment.status === 'booked' && (
                                     <div className="flex gap-3 mt-auto pt-2 border-t border-gray-100">
-                                        <Button type="primary" className="flex-1 bg-green-500 hover:bg-green-600 border-0 shadow-sm" icon={<CheckCircleOutlined />} onClick={() => handleStatusUpdate(appointment.id, 'completed')}>Tamamla</Button>
-                                        <Button danger className="flex-1" icon={<CloseCircleOutlined />} onClick={() => handleStatusUpdate(appointment.id, 'cancelled')}>İptal</Button>
+                                        {/* BUTON GÜNCELLENDİ: Artık modalı açıyor */}
+                                        <Button type="primary" className="flex-1 bg-green-500 hover:bg-green-600 border-0 shadow-sm" icon={<CheckCircleOutlined />} onClick={() => openCompletionModal(appointment.id)}>Tamamla</Button>
+                                        <Button danger className="flex-1" icon={<CloseCircleOutlined />} onClick={() => handleCancelAppointment(appointment.id)}>İptal</Button>
                                     </div>
                                 )}
                             </Card>
@@ -132,6 +166,30 @@ const DoctorDashboard = () => {
                 ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Bugün için randevu yok." className="py-12"><Button type="primary" onClick={() => navigate('/dashboard/doctor/schedule')}>Çalışma Saatlerini Kontrol Et</Button></Empty>}
             </Card>
 
+            {/* --- YENİ EKLENEN MODAL: Randevu Tamamlama --- */}
+            <Modal 
+                title="Randevu Tamamla & Raporla" 
+                open={isCompleteModalVisible} 
+                onCancel={() => setIsCompleteModalVisible(false)} 
+                footer={null} 
+                centered 
+                destroyOnClose
+            >
+                <div className="bg-blue-50 p-3 rounded-lg mb-4 text-sm text-blue-700">
+                    Muayene tamamlandı olarak işaretlenecek ve hasta geçmişine eklenecektir.
+                </div>
+                <Form form={completionForm} layout="vertical" onFinish={handleCompleteSubmit}>
+                    <Form.Item name="diagnosis" label="Teşhis" rules={[{ required: true, message: 'Teşhis girmek zorunludur' }]}><Input placeholder="Örn: Akut Farenjit" className="rounded-lg" /></Form.Item>
+                    <Form.Item name="treatment" label="Uygulanan Tedavi / Reçete" rules={[{ required: true, message: 'Tedavi bilgisi zorunludur' }]}><Input.TextArea rows={3} placeholder="İlaçlar ve öneriler..." className="rounded-lg" /></Form.Item>
+                    <Form.Item name="notes" label="Doktor Notu (Opsiyonel)"><Input.TextArea rows={2} className="rounded-lg" /></Form.Item>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button onClick={() => setIsCompleteModalVisible(false)} className="rounded-lg">Vazgeç</Button>
+                        <Button type="primary" htmlType="submit" loading={actionLoading} className="rounded-lg">Raporu Kaydet</Button>
+                    </div>
+                </Form>
+            </Modal>
+
+            {/* İzin Modalı */}
             <Modal title="İzin Dönemi Ekle" open={isTimeOffModalVisible} onCancel={() => setIsTimeOffModalVisible(false)} footer={null} centered>
                 <Form form={timeOffForm} layout="vertical" onFinish={handleAddTimeOff}>
                     <Form.Item name="dateRange" label="Tarih Aralığı" rules={[{ required: true, message: 'Lütfen tarih seçin' }]}><DatePicker.RangePicker className="w-full" size="large" disabledDate={(current) => current && current < dayjs().endOf('day')} /></Form.Item>

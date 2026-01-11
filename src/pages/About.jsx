@@ -34,7 +34,7 @@ const About = () => {
             <Navbar />
             <div className="min-h-screen bg-gray-50">
                 {/* Hero */}
-                <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-teal-400 text-white py-24 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-800 via-blue-700 to-teal-600 text-white py-24 rounded-b-[3rem] shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
                     <div className="container mx-auto px-6 text-center relative z-10">
                         <Title level={1} className="!text-white mb-6 font-bold">Biz Kimiz?</Title>

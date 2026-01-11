@@ -35,7 +35,7 @@ const Home = () => {
     useEffect(() => {
         const fetchDoctors = async () => {
             try {
-                const data = await getAllDoctors({ limit: 3 });
+                const data = await getAllDoctors({ limit: 3, sort: "rating_desc" });
                 setTopDoctors(data.data.doctors || data);
             } catch {
                 setTopDoctors([]);
