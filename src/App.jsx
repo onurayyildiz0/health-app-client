@@ -21,10 +21,6 @@ import DoctorAppointments from './pages/doctor/DoctorAppointments'
 import UserManagement from './pages/admin/UserManagement'
 import ProfileSettings from './pages/settings/ProfileSettings';
 import Doctors from './pages/doctors/Doctors';
-import PaymentPage from './pages/PaymentPage';
-import PaymentSuccess from './pages/PaymentSuccess';
-import PaymentFailed from './pages/PaymentFailed';
-
 import { useSelector } from 'react-redux';
 import { selectAuthLoading } from './store/slices/authSlice';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -58,14 +54,11 @@ function App() {
           <Route path='/reset-password/:token' element={<ResetPassword />} />
           <Route path='/about' element={<About />} />
           <Route path='/doctors' element={<Doctors />} />
-          {/* <Route path='/payment' element={<PaymentPage />} />
-          <Route path='/payment-success' element={<PaymentSuccess />} />
-          <Route path='/payment-failed' element={<PaymentFailed />} /> */}
           <Route path='/appointment-success' element={<AppointmentSuccess />} />
           <Route path='/appointment-failed' element={<AppointmentFailed />} />
           <Route path="/verify-email/:token" element={<VerifyEmail />} />
           <Route path="/verify-email-change/:token" element={<VerifyEmailChange />} />
-          {/* Dashboard Routes - Nested with Outlet */}
+          {/* Dashboard Routes */}
           <Route path="/dashboard">
             {/* Patient Dashboard */}
             <Route

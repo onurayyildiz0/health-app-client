@@ -159,16 +159,12 @@ export const cancelExistingAppointment = (appointmentId) => async (dispatch) => 
     try {
         dispatch(actionStart());
         await appointmentService.cancelAppointment(appointmentId);
-        // İptal edilen randevunun statüsünü localde güncellemek daha iyi bir UX olabilir
-        // Ama şimdilik basitçe success dönüyoruz, component fetchAll yapabilir veya filter.
         dispatch(deleteAppointmentSuccess(appointmentId)); // Listeden siler
     } catch (error) {
         dispatch(actionFailure(error.message || 'Randevu iptal edilemedi'));
         throw error;
     }
 };
-
-// --- YENİ EKLENEN THUNKS ---
 
 export const fetchAllAppointments = () => async (dispatch) => {
     try {

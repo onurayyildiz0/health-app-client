@@ -9,7 +9,7 @@ import isBetween from 'dayjs/plugin/isBetween';
 import tr_TR from 'antd/locale/tr_TR';
 import 'dayjs/locale/tr';
 
-// Slices
+
 import { createNewAppointment, fetchDoctorBookedSlots, selectBookedSlots, selectAppointmentLoading, selectAppointmentError, clearBookedSlots } from '../../store/slices/appointmentSlice';
 import { fetchAllDoctors, selectAllDoctors, selectDoctorLoading } from '../../store/slices/doctorSlice';
 import { fetchAllSpecialities, selectAllSpecialities } from '../../store/slices/specialitySlice';
@@ -29,7 +29,7 @@ const CreateAppointment = () => {
     const [searchParams] = useSearchParams();
     const preSelectedDoctorId = searchParams.get('doctorId');
 
-    // Redux Data
+    
     const doctors = useSelector(selectAllDoctors);
     const specialities = useSelector(selectAllSpecialities);
     const bookedSlots = useSelector(selectBookedSlots);
@@ -37,15 +37,15 @@ const CreateAppointment = () => {
     const docLoading = useSelector(selectDoctorLoading);
     const error = useSelector(selectAppointmentError);
 
-    // Locations
+    
     const provinces = useSelector(selectProvinces);
     const districts = useSelector(selectDistricts);
     const neighborhoods = useSelector(selectNeighborhoods);
 
-    // UI States
+    
     const [modalVisible, setModalVisible] = useState(false);
 
-    // Filtre State'leri (Debounce ve Redux fetch için)
+    
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSpeciality, setSelectedSpeciality] = useState(null);
     const [minPrice, setMinPrice] = useState(null);
@@ -54,7 +54,7 @@ const CreateAppointment = () => {
     const [filterDistrict, setFilterDistrict] = useState(null);
     const [filterNeighborhood, setFilterNeighborhood] = useState(null);
 
-    // UI Dropdown IDs
+    
     const [selectedProvinceId, setSelectedProvinceId] = useState(null);
     const [selectedDistrictId, setSelectedDistrictId] = useState(null);
     const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState(null);
@@ -67,13 +67,13 @@ const CreateAppointment = () => {
         notes: ''
     };
 
-    // 1. Initial Load (Static Data)
+    
     useEffect(() => {
         dispatch(fetchAllSpecialities());
         dispatch(fetchProvinces());
     }, [dispatch]);
 
-    // 2. Fetch Doctors on Filter Change
+    
     useEffect(() => {
         const timer = setTimeout(() => {
             const params = {
@@ -91,7 +91,7 @@ const CreateAppointment = () => {
         return () => clearTimeout(timer);
     }, [dispatch, searchTerm, selectedSpeciality, filterProvince, filterDistrict, filterNeighborhood, minPrice, maxPrice]);
 
-    // Location Handlers
+    
     const handleProvinceChange = (val, option) => {
         setSelectedProvinceId(val);
         setFilterProvince(option ? option.children : null);
@@ -129,7 +129,7 @@ const CreateAppointment = () => {
         dispatch(clearBookedSlots());
     };
 
-    // Helper Functions
+    
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayMap = { monday: 'Pazartesi', tuesday: 'Salı', wednesday: 'Çarşamba', thursday: 'Perşembe', friday: 'Cuma', saturday: 'Cumartesi', sunday: 'Pazar' };
     const weekOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -150,10 +150,10 @@ const CreateAppointment = () => {
         };
 
         try {
-            // Başarılı durum
+            
             const result = await dispatch(createNewAppointment(appointmentData));
 
-            // Başarılı ise pending veriyi temizleyebilir veya saklayabilirsiniz (ihtiyaca göre)
+            
             localStorage.setItem('pendingAppointment', JSON.stringify(appointmentData));
             if (result.id) localStorage.setItem('pendingAppointmentId', result.id);
 
@@ -161,22 +161,22 @@ const CreateAppointment = () => {
             navigate('/appointment-success');
 
         } catch (err) {
-            // Hata durumu
+            
             localStorage.setItem('pendingAppointment', JSON.stringify(appointmentData));
-            setModalVisible(false); // Modalı kapat ki kullanıcı formdaki hata mesajını (Alert) görebilsin
+            setModalVisible(false); 
 
-            // Axios error objesinden status kodunu alıyoruz
+            
             const status = err.response?.status;
 
-            // Mantık: Eğer hata 400 (Bad Request/Validation) DEĞİLSE hata sayfasına git.
-            // Eğer 400 ise sayfada kal (Redux zaten error state'ini güncellediği için yukarıdaki Alert bileşeni hatayı gösterecektir).
+            
+            
             if (status !== 400) {
                 navigate('/appointment-failed');
             }
         }
     };
 
-    // Process doctors for display (parse JSON fields)
+    
     const processedDoctors = doctors.map(doc => {
         let parsedClocks = {}, parsedUnavailable = [];
         try { parsedClocks = typeof doc.clocks === 'string' ? JSON.parse(doc.clocks) : doc.clocks || {}; } catch { }
@@ -284,17 +284,17 @@ const CreateAppointment = () => {
                                                         }}
                                                     >
                                                         {timeSlots.map(t => {
-                                                            // 2. Mevcut slotun saat ve dakikasını alıp o günün tarihiyle birleştiriyoruz
+                                                            
                                                             const [h, m] = t.split(':');
                                                             const slotTime = dayjs(values.date).hour(h).minute(m);
 
-                                                            // 3. Eğer gün bugünse ve saat şu andan önceyse true döner
+                                                            
                                                             const isPast = isToday && slotTime.isBefore(dayjs());
 
-                                                            // 4. Dolu mu kontrolü (Mevcut kodunuz)
+                                                            
                                                             const isBooked = bookedSlots.includes(t);
 
-                                                            // 5. Her iki durumda da disable et
+                                                            
                                                             const isDisabled = isBooked || isPast;
 
                                                             return (

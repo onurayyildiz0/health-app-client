@@ -10,29 +10,26 @@ const AppointmentSuccess = () => {
   const [isValid, setIsValid] = useState(false);
 
   useEffect(() => {
-    // Güvenlik kontrolü: Kullanıcı bu sayfaya direkt URL ile mi geldi,
-    // yoksa formdan mı yönlendirildi?
+    
     const pendingAppointment = localStorage.getItem('pendingAppointment');
 
-    // Eğer pendingAppointment yoksa ana sayfaya at
     if (!pendingAppointment) {
       message.warning('Randevu bilgisi bulunamadı, ana sayfaya yönlendiriliyorsunuz.');
       navigate('/');
       return;
     }
 
-    // Geçerli ise state'i güncelle ve temizlik yap
     setIsValid(true);
+    
     localStorage.removeItem('pendingAppointment');
     localStorage.removeItem('doctorData');
     localStorage.removeItem('pendingAppointmentId');
     
-    // Randevularım listesini yenile
     message.success('Randevu başarıyla onaylandı!');
     dispatch(fetchMyAppointments());
   }, [dispatch, navigate]);
 
-  // Yönlendirme sürecindeyse veya yetkisiz girişte boş render
+  
   if (!isValid) return null;
 
   return (

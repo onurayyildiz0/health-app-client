@@ -80,7 +80,7 @@ export const fetchProvinces = () => async (dispatch) => {
 
 export const fetchDistricts = (provinceId) => async (dispatch) => {
     try {
-        dispatch(clearDistrictsAndNeighborhoods()); // Önce temizle
+        dispatch(clearDistrictsAndNeighborhoods());
         if (!provinceId) return;
         
         dispatch(locationActionStart());
@@ -93,7 +93,7 @@ export const fetchDistricts = (provinceId) => async (dispatch) => {
 
 export const fetchNeighborhoods = (districtId) => async (dispatch) => {
     try {
-        dispatch(clearNeighborhoods()); // Önce temizle
+        dispatch(clearNeighborhoods()); 
         if (!districtId) return;
 
         dispatch(locationActionStart());

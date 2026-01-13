@@ -9,7 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import 'dayjs/locale/tr';
 
-// Slices
+
 import { fetchMyAppointments, cancelExistingAppointment, selectAllAppointments, selectAppointmentLoading } from '../../store/slices/appointmentSlice';
 import { fetchAllSpecialities, selectAllSpecialities } from '../../store/slices/specialitySlice';
 
@@ -20,22 +20,22 @@ const MyAppointments = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     
-    // Redux Selectors
+    
     const appointments = useSelector(selectAllAppointments);
     const loading = useSelector(selectAppointmentLoading);
     const specialities = useSelector(selectAllSpecialities);
 
-    // Local State
+    
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [cancelling, setCancelling] = useState(false);
     
-    // Filters
+    
     const [activeTab, setActiveTab] = useState('upcoming');
     const [searchText, setSearchText] = useState('');
     const [searchDate, setSearchDate] = useState(null);
 
-    // Initial Fetch
+    
     useEffect(() => {
         dispatch(fetchMyAppointments());
         dispatch(fetchAllSpecialities());
@@ -51,12 +51,12 @@ const MyAppointments = () => {
         return doctor.speciality;
     };
 
-    // --- FİLTRELEME MANTIĞI ---
+    
     const filteredAppointments = useMemo(() => {
         let list = [...appointments];
         const today = dayjs().startOf('day');
 
-        // 1. Tab Filtresi
+        
         if (activeTab === 'upcoming') {
             list = list.filter(a => (dayjs(a.date).isSame(today) || dayjs(a.date).isAfter(today)) && a.status !== 'cancelled' && a.status !== 'completed');
         } else if (activeTab === 'completed') {
@@ -65,7 +65,7 @@ const MyAppointments = () => {
             list = list.filter(a => a.status === 'cancelled');
         }
 
-        // 2. Metin Arama (Doktor Adı)
+        
         if (searchText) {
             const lowerText = searchText.toLowerCase();
             list = list.filter(a => 
@@ -74,12 +74,12 @@ const MyAppointments = () => {
             );
         }
 
-        // 3. Tarih Filtresi
+        
         if (searchDate) {
             list = list.filter(a => dayjs(a.date).isSame(searchDate, 'day'));
         }
 
-        // Sıralama (Yaklaşanlar önce, Geçmişler en son tarih önce)
+        
         return list.sort((a, b) => {
             return activeTab === 'upcoming' 
                 ? dayjs(a.date).unix() - dayjs(b.date).unix()

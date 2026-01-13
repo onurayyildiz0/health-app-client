@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Result, Button, Card, Spin } from 'antd';
 import { CheckCircleFilled, CloseCircleFilled, MailOutlined } from '@ant-design/icons';
-import { verifyEmail } from '../api/userService'; // userService.js yolunuzu kontrol edin
+import { verifyEmail } from '../api/userService'; 
 
 const VerifyEmail = () => {
     const { token } = useParams();
     const navigate = useNavigate();
-    const [status, setStatus] = useState('loading'); // 'loading', 'success', 'error'
+    const [status, setStatus] = useState('loading'); 
     const [message, setMessage] = useState('E-posta adresiniz doğrulanıyor, lütfen bekleyin...');
 
     useEffect(() => {
@@ -17,10 +17,10 @@ const VerifyEmail = () => {
                 setMessage('Geçersiz doğrulama bağlantısı.');
                 return;
             }
-
+            
             try {
-                // Backend'e istek at
                 const response = await verifyEmail(token);
+
                 setStatus('success');
                 setMessage(response.message || 'E-posta adresiniz başarıyla doğrulandı!');
             } catch (error) {

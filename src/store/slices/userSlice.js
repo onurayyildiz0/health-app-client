@@ -212,7 +212,6 @@ export const updatePassword = (passwordData) => async (dispatch) => {
 
 export const fetchFavoriteDoctors = () => async (dispatch) => {
     const response = await userService.getFavoriteDoctors();
-    // Backend {favorites: [...]} döndürüyor
     const doctors = response.favorites || response.data || response || [];
     dispatch(fetchFavoriteDoctorsSuccess(doctors));
 };

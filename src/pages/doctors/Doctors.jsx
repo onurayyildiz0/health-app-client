@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAllDoctors } from '../../api/doctorService';
-import { Card, Row, Col, Typography, Avatar, Button, Tag, Rate, Tooltip } from 'antd'; // Tooltip eklendi
+import { Card, Row, Col, Typography, Avatar, Button, Tag, Rate, Tooltip } from 'antd'; 
 import { UserOutlined, CalendarOutlined, EnvironmentOutlined, HeartOutlined } from '@ant-design/icons';
 import Navbar from '../../components/Navbar';
 import { Link, useNavigate } from 'react-router-dom';
@@ -74,7 +74,7 @@ const Doctors = () => {
                                                 <div className="px-6 pb-6 bg-white group-hover:bg-blue-50 transition-colors duration-300">
                                                     <div className="min-h-[24px] mb-4 flex justify-center">
                                                         {doctor.fullLocation ? (
-                                                            // Tooltip Bileşeni Eklendi
+                                                            
                                                             <Tooltip title={doctor.fullLocation} placement="top">
                                                                 <div className="flex items-center justify-center gap-2 text-gray-500 text-sm cursor-pointer hover:text-blue-600 transition-colors">
                                                                     <EnvironmentOutlined />

@@ -4,7 +4,7 @@ import { SearchOutlined, MedicineBoxOutlined, UserOutlined, EnvironmentOutlined,
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 
-// Slices
+
 import { fetchAllDoctors, selectAllDoctors, selectDoctorLoading, selectDoctorError, selectDoctorPagination } from '../../store/slices/doctorSlice';
 import { fetchAllSpecialities, selectAllSpecialities } from '../../store/slices/specialitySlice';
 import { fetchProvinces, fetchDistricts, fetchNeighborhoods, selectProvinces, selectDistricts, selectNeighborhoods, clearDistrictsAndNeighborhoods, clearNeighborhoods } from '../../store/slices/locationSlice';
@@ -16,32 +16,32 @@ const DoctorList = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-    // Redux Selectors
+    
     const doctors = useSelector(selectAllDoctors);
     const specialities = useSelector(selectAllSpecialities);
     const loading = useSelector(selectDoctorLoading);
     const error = useSelector(selectDoctorError);
     const pagination = useSelector(selectDoctorPagination);
     
-    // Location Selectors
+    
     const provinces = useSelector(selectProvinces);
     const districts = useSelector(selectDistricts);
     const neighborhoods = useSelector(selectNeighborhoods);
 
-    // Local UI State (Filters)
+    
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSpeciality, setSelectedSpeciality] = useState(null);
     const [minRating, setMinRating] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     
-    // Fiyat Filtreleri
+    
     const [filterMinPrice, setFilterMinPrice] = useState(null);
     const [filterMaxPrice, setFilterMaxPrice] = useState(null);
 
-    // Yeni: Sıralama State'i
+    
     const [sortBy, setSortBy] = useState(null);
 
-    // Location Filter State
+    
     const [selectedProvinceId, setSelectedProvinceId] = useState(null);
     const [selectedDistrictId, setSelectedDistrictId] = useState(null);
     const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState(null);
@@ -50,13 +50,13 @@ const DoctorList = () => {
     const [filterDistrict, setFilterDistrict] = useState(null);
     const [filterNeighborhood, setFilterNeighborhood] = useState(null);
 
-    // Initialize Data
+    
     useEffect(() => {
         dispatch(fetchAllSpecialities());
         dispatch(fetchProvinces());
     }, [dispatch]);
 
-    // Fetch Doctors on Filter Change
+    
     useEffect(() => {
         const timer = setTimeout(() => {
             const params = {
@@ -73,12 +73,12 @@ const DoctorList = () => {
                 sort: sortBy || undefined 
             };
             dispatch(fetchAllDoctors(params));
-        }, 500); // Debounce
+        }, 500); 
 
         return () => clearTimeout(timer);
     }, [dispatch, searchTerm, selectedSpeciality, minRating, filterProvince, filterDistrict, filterNeighborhood, filterMinPrice, filterMaxPrice, sortBy, currentPage]);
 
-    // Location Handlers
+    
     const handleProvinceChange = (val, option) => {
         setSelectedProvinceId(val);
         setFilterProvince(option ? option.children : null);

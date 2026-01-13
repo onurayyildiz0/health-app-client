@@ -10,7 +10,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 
-// Slices
+
 import {
     fetchMyDoctorProfile, updateDoctorInfo, selectCurrentDoctorProfile, selectDoctorLoading
 } from '../../store/slices/doctorSlice';
@@ -34,7 +34,7 @@ export default function DoctorInformation() {
     const dispatch = useDispatch();
     const [form] = Form.useForm();
 
-    // Selectors
+    
     const profile = useSelector(selectCurrentDoctorProfile);
     const docLoading = useSelector(selectDoctorLoading);
     const specialities = useSelector(selectAllSpecialities);
@@ -42,7 +42,7 @@ export default function DoctorInformation() {
     const districts = useSelector(selectDistricts);
     const neighborhoods = useSelector(selectNeighborhoods);
 
-    // Review Selectors
+    
     const reviews = useSelector(selectAllReviews);
     const reviewsLoading = useSelector(selectReviewLoading);
 
@@ -50,14 +50,14 @@ export default function DoctorInformation() {
     const [selectedProvId, setSelectedProvId] = useState(null);
     const [selectedDistId, setSelectedDistId] = useState(null);
 
-    // 1. Initial Fetch
+    
     useEffect(() => {
         dispatch(fetchMyDoctorProfile());
         dispatch(fetchAllSpecialities());
         dispatch(fetchProvinces());
     }, [dispatch]);
 
-    // 2. Profil Yüklendiğinde Formu Doldur
+    
     useEffect(() => {
         if (profile) {
             form.setFieldsValue({
@@ -86,7 +86,7 @@ export default function DoctorInformation() {
         }
     }, [profile, provinces, dispatch, form]);
 
-    // 3. İlçe Eşleştirme
+    
     useEffect(() => {
         if (profile?.district && districts.length > 0 && selectedProvId) {
             const foundDist = districts.find(d => normalizeString(d.name) === normalizeString(profile.district));
@@ -98,7 +98,7 @@ export default function DoctorInformation() {
         }
     }, [districts, profile, selectedProvId, dispatch, form]);
 
-    // 4. Mahalle Eşleştirme
+    
     useEffect(() => {
         if (profile?.neighborhood && neighborhoods.length > 0 && selectedDistId) {
             const foundNeigh = neighborhoods.find(n => normalizeString(n.name) === normalizeString(profile.neighborhood));
@@ -146,7 +146,7 @@ export default function DoctorInformation() {
 
     if (docLoading && !profile) return <div className="flex justify-center p-20"><Spin size="large" /></div>;
 
-    // Ortalama Puan Hesaplama
+    
     const averageRating = reviews && reviews.length > 0
         ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1)
         : 0;
@@ -212,7 +212,7 @@ export default function DoctorInformation() {
                 className="shadow-md rounded-xl border-t-4 border-t-yellow-500"
                 style={{ padding: '16px' }}
                 title={
-                    // GÜNCELLENEN KISIM: Flex container düzenlendi ve Tag içeri alındı
+                    
                     <div className="flex items-center gap-3 pt-2 mb-6 border-b pb-2">
                         <MessageOutlined className="text-xl text-yellow-600" />
                         <h3 className="text-gray-700 font-bold text-lg m-0">Hasta Değerlendirmeleri</h3>

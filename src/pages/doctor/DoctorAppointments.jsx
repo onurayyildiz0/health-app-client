@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import 'dayjs/locale/tr';
 
-// Slices
+
 import { 
     fetchDoctorAppointments, 
     updateAppointmentStatus, 
@@ -23,15 +23,15 @@ const DoctorAppointments = () => {
     const appointments = useSelector(selectAllAppointments);
     const loading = useSelector(selectAppointmentLoading);
 
-    // Local State
+    
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     
-    // Filters
-    const [activeTab, setActiveTab] = useState('upcoming'); // Varsayılan: Gelecek randevular
+    
+    const [activeTab, setActiveTab] = useState('upcoming'); 
     const [searchText, setSearchText] = useState('');
     
-    // Complete Modal
+    
     const [isCompleteModalVisible, setIsCompleteModalVisible] = useState(false);
     const [completionForm] = Form.useForm();
     const [completingAppointmentId, setCompletingAppointmentId] = useState(null);
@@ -41,16 +41,16 @@ const DoctorAppointments = () => {
         dispatch(fetchDoctorAppointments());
     }, [dispatch]);
 
-    // --- FİLTRELEME MANTIĞI ---
+    
     const filteredList = useMemo(() => {
         let list = [...appointments];
         const today = dayjs().startOf('day');
 
-        // 1. Tab Filtresi
+        
         if (activeTab === 'pending') {
             list = list.filter(a => a.status === 'pending');
         } else if (activeTab === 'upcoming') {
-            // Gelecek = Tarihi bugün veya sonra olan VE iptal/tamamlanmış olmayanlar
+            
             list = list.filter(a => (dayjs(a.date).isSame(today) || dayjs(a.date).isAfter(today)) && a.status !== 'cancelled' && a.status !== 'completed' && a.status !== 'pending');
         } else if (activeTab === 'today') {
             list = list.filter(a => dayjs(a.date).isSame(today, 'day') && a.status !== 'cancelled');
@@ -60,13 +60,13 @@ const DoctorAppointments = () => {
             list = list.filter(a => a.status === 'cancelled');
         }
 
-        // 2. Arama Filtresi (Hasta Adı)
+        
         if (searchText) {
             const lower = searchText.toLowerCase();
             list = list.filter(a => a.patient?.name?.toLowerCase().includes(lower) || a.patient?.email?.toLowerCase().includes(lower));
         }
 
-        // Sıralama
+        
         return list.sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix());
     }, [appointments, activeTab, searchText]);
 

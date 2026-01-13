@@ -164,7 +164,7 @@ const DashboardLayout = ({ children, userRole = 'patient' }) => {
             label: 'Çıkış Yap',
             icon: <LogoutOutlined />,
             danger: true,
-            // GÜNCELLENEN LOGOUT MANTIĞI
+            
             onClick: async () => {
                 try {
                     await authService.logout();

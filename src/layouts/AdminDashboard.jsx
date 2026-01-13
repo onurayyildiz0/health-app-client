@@ -18,19 +18,19 @@ const AdminDashboard = () => {
     const loading = useSelector(selectAdminLoading);
     const dispatch = useDispatch();
     
-    // Modal State
+    
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [createLoading, setCreateLoading] = useState(false);
     const [form] = Form.useForm();
 
     const today = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    // İstatistikleri Yükle (Slice üzerinden)
+    
     useEffect(() => {
         dispatch(fetchStats());
     }, [dispatch]);
 
-    // Yeni Admin Oluştur (Slice üzerinden)
+    
     const handleCreateAdmin = async (values) => {
         try {
             setCreateLoading(true);

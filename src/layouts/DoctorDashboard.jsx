@@ -5,12 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 
-// Slices & Actions
+
 import { selectUser } from '../store/slices/authSlice';
 import { 
     fetchDoctorAppointments, 
     updateAppointmentStatus, 
-    completeAppointment, // EKLENDİ: Tamamlama işlemi için gerekli
+    completeAppointment,
     selectAllAppointments, 
     selectAppointmentLoading 
 } from '../store/slices/appointmentSlice';
@@ -23,29 +23,27 @@ const DoctorDashboard = () => {
     const dispatch = useDispatch();
     const user = useSelector(selectUser);
     
-    // Redux State
+    
     const appointments = useSelector(selectAllAppointments);
     const appLoading = useSelector(selectAppointmentLoading);
     const docLoading = useSelector(selectDoctorLoading);
 
-    // İzin Modal State
+    
     const [isTimeOffModalVisible, setIsTimeOffModalVisible] = useState(false);
     const [timeOffForm] = Form.useForm();
-
-    // --- YENİ EKLENEN STATE'LER (Randevu Tamamlama İçin) ---
     const [isCompleteModalVisible, setIsCompleteModalVisible] = useState(false);
     const [completionForm] = Form.useForm();
     const [completingAppointmentId, setCompletingAppointmentId] = useState(null);
-    const [actionLoading, setActionLoading] = useState(false); // Tamamlama işlemi loading'i
+    const [actionLoading, setActionLoading] = useState(false); 
 
     const todayStr = new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    // 1. Randevuları Yükle
+    
     useEffect(() => {
         dispatch(fetchDoctorAppointments());
     }, [dispatch]);
 
-    // 2. Sadece İptal İşlemi İçin (Tamamlama işlemi ayrıldı)
+    
     const handleCancelAppointment = async (appointmentId) => {
         try {
             await dispatch(updateAppointmentStatus({ id: appointmentId, status: 'cancelled' }));
@@ -56,7 +54,7 @@ const DoctorDashboard = () => {
         }
     };
 
-    // --- YENİ FONKSİYONLAR (Randevu Tamamlama) ---
+    
     const openCompletionModal = (appointmentId) => {
         setCompletingAppointmentId(appointmentId);
         setIsCompleteModalVisible(true);
@@ -65,24 +63,24 @@ const DoctorDashboard = () => {
     const handleCompleteSubmit = async (values) => {
         setActionLoading(true);
         try {
-            // updateAppointmentStatus yerine completeAppointment kullanıyoruz
+            
             await dispatch(completeAppointment(completingAppointmentId, values));
             
             message.success('Randevu başarıyla tamamlandı ve rapor oluşturuldu.');
             setIsCompleteModalVisible(false);
             completionForm.resetFields();
             
-            // Listeyi güncelle
+            
             dispatch(fetchDoctorAppointments()); 
         } catch (err) {
-            // Hata mesajını slice'tan veya error objesinden alabiliriz
+            
             message.error(err.response?.data?.message || err.message || 'İşlem başarısız');
         } finally {
             setActionLoading(false);
         }
     };
 
-    // 3. İzin Ekleme (Doctor Slice)
+    
     const handleAddTimeOff = async (values) => {
         try {
             await dispatch(addUnavailableDate({
@@ -94,7 +92,7 @@ const DoctorDashboard = () => {
             setIsTimeOffModalVisible(false);
             timeOffForm.resetFields();
         } catch (error) {
-            // Hata handling slice içinde olabilir
+            
         }
     };
 
@@ -155,7 +153,7 @@ const DoctorDashboard = () => {
                                 
                                 {appointment.status === 'booked' && (
                                     <div className="flex gap-3 mt-auto pt-2 border-t border-gray-100">
-                                        {/* BUTON GÜNCELLENDİ: Artık modalı açıyor */}
+                                        
                                         <Button type="primary" className="flex-1 bg-green-500 hover:bg-green-600 border-0 shadow-sm" icon={<CheckCircleOutlined />} onClick={() => openCompletionModal(appointment.id)}>Tamamla</Button>
                                         <Button danger className="flex-1" icon={<CloseCircleOutlined />} onClick={() => handleCancelAppointment(appointment.id)}>İptal</Button>
                                     </div>
@@ -166,7 +164,7 @@ const DoctorDashboard = () => {
                 ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Bugün için randevu yok." className="py-12"><Button type="primary" onClick={() => navigate('/dashboard/doctor/schedule')}>Çalışma Saatlerini Kontrol Et</Button></Empty>}
             </Card>
 
-            {/* --- YENİ EKLENEN MODAL: Randevu Tamamlama --- */}
+            
             <Modal 
                 title="Randevu Tamamla & Raporla" 
                 open={isCompleteModalVisible} 

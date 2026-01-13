@@ -1,4 +1,4 @@
-// src/pages/VerifyEmailChange.jsx
+
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -8,13 +8,14 @@ import { confirmEmailChange } from '../api/userService';
 const VerifyEmailChange = () => {
     const { token } = useParams();
     const navigate = useNavigate();
-    const [status, setStatus] = useState('loading'); // loading, success, error
+    const [status, setStatus] = useState('loading'); 
     const [msg, setMsg] = useState('İşlem yapılıyor...');
 
     useEffect(() => {
         const verify = async () => {
             try {
                 const response = await confirmEmailChange(token);
+                
                 setStatus('success');
                 setMsg(response.message || 'E-posta adresiniz başarıyla değiştirildi.');
                 localStorage.removeItem("token");

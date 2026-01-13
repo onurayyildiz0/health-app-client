@@ -3,35 +3,43 @@ import {
     Card, Form, Input, Button, Avatar, Upload, message, Divider, Typography, Space, Modal
 } from 'antd';
 import {
-    UserOutlined, MailOutlined, UploadOutlined, SaveOutlined, SafetyCertificateOutlined
+    UserOutlined, MailOutlined, UploadOutlined, SaveOutlined, 
+    SafetyCertificateOutlined, DeleteOutlined, ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom'; 
+
+
 import {
     updateProfileStart, updateProfileSuccess, updateProfileFailure,
-    selectUserLoading
+    selectUserLoading, removeAccount
 } from '../../store/slices/userSlice';
-import { selectUser, loginSuccess } from '../../store/slices/authSlice';
-import * as userService from '../../api/userService';
+import { selectUser, loginSuccess, logout } from '../../store/slices/authSlice';
 
-// userService.js dosyasından named export olarak verifyIdentity'i de alalım 
-// Eğer default export kullanıyorsanız userService.verifyIdentity şeklinde aşağıda kullanacağız.
+
+import * as userService from '../../api/userService';
 
 const { Title, Text } = Typography;
 
 const ProfileSettings = () => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const user = useSelector(selectUser);
     const loading = useSelector(selectUserLoading);
 
     const [profileForm] = Form.useForm();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar);
 
-    // --- YENİ STATE'LER ---
-    const [isModalOpen, setIsModalOpen] = useState(false); // Modal görünürlüğü
-    const [pendingValues, setPendingValues] = useState(null); // Form verilerini bekletmek için
-    const [tcInput, setTcInput] = useState(""); // Modal içindeki input
-    const [verifying, setVerifying] = useState(false); // Modal loading durumu
+    
+    const [isModalOpen, setIsModalOpen] = useState(false); 
+    const [pendingValues, setPendingValues] = useState(null); 
+    const [tcInput, setTcInput] = useState(""); 
+    const [verifying, setVerifying] = useState(false); 
+    
+    
+    const [actionType, setActionType] = useState(null);
 
+    
     useEffect(() => {
         if (user) {
             profileForm.setFieldsValue({
@@ -44,19 +52,26 @@ const ProfileSettings = () => {
         }
     }, [user, profileForm]);
 
-    // Form Submit Butonuna Basıldığında Çalışır
+    
     const onFinish = (values) => {
-        // Eğer email değişmişse güvenlik kontrolü yap
+        
         if (user.email !== values.email) {
-            setPendingValues(values); // Verileri hafızaya al
-            setIsModalOpen(true);     // Modalı aç
+            setPendingValues(values);
+            setActionType('EMAIL_UPDATE');
+            setIsModalOpen(true);
         } else {
-            // Email değişmediyse direkt güncelle
+            
             performUpdate(values);
         }
     };
 
-    // Asıl güncelleme işlemini yapan fonksiyon
+    
+    const handleDeleteClick = () => {
+        setActionType('DELETE_ACCOUNT');
+        setIsModalOpen(true);
+    };
+
+    
     const performUpdate = async (values) => {
         try {
             dispatch(updateProfileStart());
@@ -72,6 +87,7 @@ const ProfileSettings = () => {
 
             dispatch(updateProfileSuccess(userData));
             
+            
             dispatch(loginSuccess({
                 user: userData,
                 token: localStorage.getItem('token')
@@ -79,7 +95,7 @@ const ProfileSettings = () => {
 
             if (values.email !== user.email) {
                 message.info(msg || 'Lütfen yeni e-posta adresinize gönderilen doğrulama bağlantısına tıklayın.', 6);
-                // Formu eski mail'e resetle (çünkü henüz doğrulanmadı)
+                
                 profileForm.setFieldsValue({ email: user.email });
             } else {
                 message.success('Profil başarıyla güncellendi!');
@@ -90,14 +106,34 @@ const ProfileSettings = () => {
             dispatch(updateProfileFailure(errorMsg));
             message.error(errorMsg);
         } finally {
-            // Temizlik
-            setIsModalOpen(false);
-            setPendingValues(null);
-            setTcInput("");
+            closeModal();
         }
     };
 
-    // Modal içindeki "Doğrula ve Güncelle" butonu
+    
+    const performDeleteAccount = async () => {
+        try {
+            await dispatch(removeAccount()); 
+            
+            message.success("Hesabınız başarıyla silindi. Giriş sayfasına yönlendiriliyorsunuz...");
+            
+            
+            localStorage.removeItem('token');
+            dispatch(logout()); 
+
+            setTimeout(() => {
+                navigate('/login'); 
+            }, 1500);
+
+        } catch (error) {
+            message.error(error.response?.data?.message || "Hesap silinirken bir hata oluştu.");
+            console.error(error);
+        } finally {
+            closeModal();
+        }
+    };
+
+    
     const handleVerifyAndSave = async () => {
         if (!tcInput) {
             message.warning("Lütfen TC Kimlik Numaranızı girin.");
@@ -106,22 +142,36 @@ const ProfileSettings = () => {
 
         setVerifying(true);
         try {
-            // 1. Önce TC Doğrula
-            // Not: userService'i import * as userService olarak aldıysanız:
+            
             await userService.verifyIdentity(tcInput); 
             
-            // 2. Başarılı ise bekleyen güncelleme işlemini yap
-            message.success("Kimlik doğrulandı, profil güncelleniyor...");
-            await performUpdate(pendingValues);
+            
+            if (actionType === 'EMAIL_UPDATE') {
+                message.loading({ content: "Kimlik doğrulandı, profil güncelleniyor...", key: 'process' });
+                await performUpdate(pendingValues);
+                message.success({ content: "Güncelleme tamamlandı!", key: 'process' });
+            } 
+            else if (actionType === 'DELETE_ACCOUNT') {
+                message.loading({ content: "Kimlik doğrulandı, hesap siliniyor...", key: 'process' });
+                await performDeleteAccount();
+            }
 
         } catch (error) {
-            message.error(error.response?.data?.message || "Kimlik doğrulanamadı.");
+            message.error(error.response?.data?.message || "Kimlik doğrulanamadı, işlem iptal edildi.");
         } finally {
             setVerifying(false);
         }
     };
 
-    // ... Avatar yükleme kodları (Aynı kalacak) ...
+    
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setPendingValues(null);
+        setTcInput("");
+        setActionType(null);
+    };
+
+    
     const handleAvatarChange = (info) => {
         if (info.file.status === 'uploading') return;
         const file = info.file.originFileObj || info.file;
@@ -147,19 +197,20 @@ const ProfileSettings = () => {
     };
 
     return (
-        <div className="max-w-4xl mx-auto min-h-screen">
+        <div className="max-w-4xl mx-auto min-h-screen pb-10">
             <Title level={3} className="mb-6">
                 <UserOutlined className="mr-2" />
                 Profil Ayarları
             </Title>
 
-            <Card className="mb-6">
-                <div className="flex items-center gap-6 mb-6">
+            <Card className="mb-6 shadow-sm">
+                {/* --- AVATAR VE İSİM --- */}
+                <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
                     <Avatar size={100} icon={<UserOutlined />} src={avatarUrl} />
-                    <div>
+                    <div className="text-center md:text-left">
                         <Title level={4} className="!mb-1">{user?.name}</Title>
                         <Text type="secondary">{user?.email}</Text>
-                        <div className="mt-2">
+                        <div className="mt-3">
                             <Upload
                                 name="avatar"
                                 showUploadList={false}
@@ -175,10 +226,11 @@ const ProfileSettings = () => {
 
                 <Divider />
 
+                {/* --- PROFİL FORMU --- */}
                 <Form
                     form={profileForm}
                     layout="vertical"
-                    onFinish={onFinish} // handleUpdateProfile yerine onFinish kullanıyoruz
+                    onFinish={onFinish}
                 >
                     <Form.Item
                         label="Ad Soyad"
@@ -208,22 +260,48 @@ const ProfileSettings = () => {
                     </Form.Item>
 
                     <Form.Item>
-                        <Space>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                icon={<SaveOutlined />}
-                                loading={loading}
-                                size="large"
-                            >
-                                Değişiklikleri Kaydet
-                            </Button>
-                        </Space>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            icon={<SaveOutlined />}
+                            
+                            loading={loading && actionType !== 'DELETE_ACCOUNT'} 
+                            size="large"
+                        >
+                            Değişiklikleri Kaydet
+                        </Button>
                     </Form.Item>
                 </Form>
+
+                {/* --- TEHLİKELİ BÖLGE (HESAP SİLME) --- */}
+                <Divider style={{ borderColor: '#ffccc7', marginTop: '40px' }} dashed />
+                
+                <div className="bg-red-50 p-6 rounded-lg border border-red-100 mt-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <Title level={5} type="danger" className="!mb-1">
+                                <ExclamationCircleOutlined className="mr-2"/> 
+                                Hesabı Sil
+                            </Title>
+                            <Text className="text-gray-600 text-sm">
+                                Hesabınızı sildiğinizde tüm verileriniz kalıcı olarak silinir. 
+                                <br />Bu işlem geri alınamaz.
+                            </Text>
+                        </div>
+                        <Button 
+                            type="primary" 
+                            danger 
+                            size="large" 
+                            icon={<DeleteOutlined />} 
+                            onClick={handleDeleteClick}
+                        >
+                            Hesabımı Sil
+                        </Button>
+                    </div>
+                </div>
             </Card>
 
-            {/* --- TC DOĞRULAMA MODALI --- */}
+            {/* --- ORTAK TC KİMLİK DOĞRULAMA MODALI --- */}
             <Modal
                 title={
                     <div className="flex items-center gap-2 text-orange-600">
@@ -233,19 +311,24 @@ const ProfileSettings = () => {
                 }
                 open={isModalOpen}
                 onOk={handleVerifyAndSave}
-                onCancel={() => {
-                    setIsModalOpen(false);
-                    setPendingValues(null);
-                    setTcInput("");
-                }}
+                onCancel={closeModal}
                 confirmLoading={verifying}
-                okText="Doğrula ve Güncelle"
+                okText={actionType === 'DELETE_ACCOUNT' ? "Onayla ve Sil" : "Doğrula ve Güncelle"}
+                okButtonProps={{ danger: actionType === 'DELETE_ACCOUNT' }} 
                 cancelText="İptal"
             >
-                <p className="mb-4">
-                    E-posta adresinizi değiştirmek üzeresiniz. Güvenliğiniz için lütfen 
-                    <b> TC Kimlik Numaranızı</b> girerek işlemi onaylayın.
-                </p>
+                {actionType === 'DELETE_ACCOUNT' ? (
+                    <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded text-sm">
+                        <b>DİKKAT:</b> Hesabınızı silmek üzeresiniz. Bu işlem geri alınamaz! 
+                        İşlemi onaylamak için lütfen <b>TC Kimlik Numaranızı</b> girin.
+                    </div>
+                ) : (
+                    <p className="mb-4 text-gray-700">
+                        E-posta adresinizi değiştirmek üzeresiniz. Güvenliğiniz için lütfen 
+                        <b> TC Kimlik Numaranızı</b> girerek işlemi onaylayın.
+                    </p>
+                )}
+                
                 <Input
                     placeholder="TC Kimlik Numaranız"
                     maxLength={11}
@@ -255,6 +338,8 @@ const ProfileSettings = () => {
                         setTcInput(val);
                     }}
                     prefix={<UserOutlined />}
+                    size="large"
+                    className="mt-2"
                 />
             </Modal>
         </div>

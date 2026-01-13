@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Card, Form, Input, Button, message, Result } from 'antd';
 import { LockOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-// DÜZELTME 1: Eğer userService içinde "export const resetPassword" kullanıldıysa süslü parantez eklenmeli.
-// Eğer "export default" ise parantezsiz kalabilir, ancak genelde servis dosyaları const export eder.
+
+
 import { resetPassword } from '../api/userService'; 
 
 const ResetPassword = () => {
@@ -15,16 +15,13 @@ const ResetPassword = () => {
     const handleSubmit = async (values) => {
         setLoading(true);
         try {
-            // API isteği
             await resetPassword(token, values.password);
             
             setSuccess(true);
             message.success('Şifreniz başarıyla güncellendi.');
             setTimeout(() => navigate('/login'), 3000);
         } catch (error) {
-            console.error(error); // Hata detayını konsolda görmek için
-            
-            // DÜZELTME 2: Error objesini doğrudan değil, içindeki mesajı string olarak veriyoruz.
+            console.error(error); 
             const errorMsg = error.response?.data?.message || error.message || 'Şifre sıfırlama başarısız oldu.';
             message.error(errorMsg);
         } finally { 

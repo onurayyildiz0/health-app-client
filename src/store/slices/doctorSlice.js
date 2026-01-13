@@ -132,7 +132,7 @@ export const fetchMyDoctorProfile = () => async (dispatch) => {
     try {
         dispatch(actionStart());
         const response = await doctorService.getMyDoctorProfile();
-        dispatch(fetchMyProfileSuccess(response)); // response.data service'de ayarlanmış olabilir
+        dispatch(fetchMyProfileSuccess(response));
     } catch (err) {
         dispatch(actionFailure(err.message));
     }
@@ -143,8 +143,6 @@ export const updateDoctorSchedule = (scheduleData) => async (dispatch) => {
     try {
         dispatch(actionStart());
         await doctorService.setDoctorSchedule(scheduleData);
-        // Backend tam obje dönmüyorsa sadece success mesajı verip manuel fetch yaptırabiliriz
-        // veya payload'ı state'e merge edebiliriz.
         dispatch(updateDoctorProfileSuccess({ 
             clocks: JSON.stringify(scheduleData.clocks), 
             consultationFee: scheduleData.consultationFee 
@@ -173,7 +171,6 @@ export const addUnavailableDate = (data) => async (dispatch) => {
         dispatch(actionStart());
         await doctorService.addUnavailableDate(data);
         dispatch(addUnavailableDateSuccess());
-        // Veri tutarlılığı için profili yeniden çekiyoruz
         dispatch(fetchMyDoctorProfile());
     } catch (err) {
         dispatch(actionFailure(err.response?.data?.message || err.message));

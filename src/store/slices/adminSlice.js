@@ -4,6 +4,7 @@ import * as adminService from '../../api/adminService';
 const initialState = {
     users: [],
     pendingDoctors: [],
+    selectedUser: null,
     stats: {
         totalUsers: 0,
         totalPatients: 0,
@@ -75,6 +76,13 @@ const adminSlice = createSlice({
             state.stats = initialState.stats;
             state.loading = false;
             state.error = null;
+        },
+        fetchUserDetailsSuccess: (state, action) => {
+            state.loading = false;
+            state.selectedUser = action.payload;
+        },
+        clearSelectedUser: (state) => {
+            state.selectedUser = null;
         }
     }
 });
@@ -89,7 +97,9 @@ export const {
     createAdminSuccess,
     deleteUserSuccess,
     updateUserRoleSuccess,
-    resetAdminState
+    resetAdminState,
+    fetchUserDetailsSuccess,
+    clearSelectedUser
 } = adminSlice.actions;
 
 // Selectors
@@ -97,6 +107,7 @@ export const selectAllUsers = (state) => state.admin.users;
 export const selectPendingDoctors = (state) => state.admin.pendingDoctors;
 export const selectAdminStats = (state) => state.admin.stats;
 export const selectAdminLoading = (state) => state.admin.loading;
+export const selectSelectedUser = (state) => state.admin.selectedUser;
 
 // THUNK ACTIONS
 
@@ -127,7 +138,7 @@ export const fetchAllUsers = (role) => async (dispatch) => {
 // 3. Bekleyen Doktorları Getir
 export const fetchPendingDoctors = () => async (dispatch) => {
     try {
-        // dispatch(actionStart()); // Loading her seferinde dönmesin istersen kapatabilirsin
+        
         const response = await adminService.getPendingDoctors();
         dispatch(fetchPendingDoctorsSuccess(response.data || response));
     } catch (err) {
@@ -144,7 +155,7 @@ export const createNewAdmin = (adminData) => async (dispatch) => {
         return response; 
     } catch (err) {
         dispatch(actionFailure(err.response?.data?.message || err.message));
-        throw err; // Component tarafında catch yakalasın diye
+        throw err; 
     }
 };
 
@@ -154,7 +165,6 @@ export const approveDoctorAccount = (doctorId) => async (dispatch) => {
         dispatch(actionStart());
         await adminService.approveDoctor(doctorId);
         dispatch(approveDoctorSuccess(doctorId));
-        // Bekleyen listesini ve ana kullanıcı listesini yenilemek iyi olabilir
         dispatch(fetchAllUsers()); 
     } catch (err) {
         dispatch(actionFailure(err.message));
@@ -179,13 +189,21 @@ export const modifyUserRole = (userId, role) => async (dispatch) => {
     try {
         dispatch(actionStart());
         const response = await adminService.updateUserRole(userId, role);
-        // Eğer backend güncel user objesini "data" içinde dönüyorsa:
         dispatch(updateUserRoleSuccess(response.data || response));
-        // Dönmüyorsa manuel fetch gerekebilir:
-        // dispatch(fetchAllUsers());
     } catch (err) {
         dispatch(actionFailure(err.message));
         throw err;
+    }
+};
+
+// 8. Tek bir kullanıcının tüm detaylarını getir
+export const fetchUserDetails = (userId) => async (dispatch) => {
+    try {
+        dispatch(actionStart());
+        const response = await adminService.getUserById(userId);
+        dispatch(fetchUserDetailsSuccess(response.data || response));
+    } catch (err) {
+        dispatch(actionFailure(err.message));
     }
 };
 

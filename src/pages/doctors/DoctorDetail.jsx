@@ -12,7 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 
-// Slices
+
 import { 
     fetchDoctorDetails, 
     selectSelectedDoctor, 
@@ -22,12 +22,12 @@ import {
 import { 
     fetchDoctorReviews, 
     submitReview, 
-    selectAllReviews // Bu selector'ı ekledik
+    selectAllReviews 
 } from '../../store/slices/reviewSlice';
 import { addFavoriteDoctorSuccess, removeFavoriteDoctorSuccess, selectFavoriteDoctors } from '../../store/slices/userSlice';
 import { selectUser } from '../../store/slices/authSlice';
 import { fetchAllSpecialities, selectAllSpecialities } from '../../store/slices/specialitySlice';
-import * as userService from '../../api/userService'; // Sadece spesifik user işlemleri için
+import * as userService from '../../api/userService'; 
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -96,7 +96,7 @@ const DoctorDetail = () => {
             message.success('Yorumunuz başarıyla eklendi');
             setIsReviewModalVisible(false);
             form.resetFields();
-            dispatch(fetchDoctorReviews(id)); // Yenile
+            dispatch(fetchDoctorReviews(id)); 
         } catch (err) {
             message.error(err.message || 'Yorum eklenemedi');
         } finally {

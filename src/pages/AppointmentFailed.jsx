@@ -9,7 +9,6 @@ const AppointmentFailed = () => {
   useEffect(() => {
     const pendingAppointment = localStorage.getItem('pendingAppointment');
 
-    // Eğer pendingAppointment yoksa ana sayfaya at
     if (!pendingAppointment) {
       message.warning('İşlem bilgisi bulunamadı, ana sayfaya yönlendiriliyorsunuz.');
       navigate('/');
@@ -17,9 +16,7 @@ const AppointmentFailed = () => {
     }
 
     setIsValid(true);
-    // Hata sayfasından çıkıldığında verileri temizle
-    // Not: Kullanıcı "Tekrar Dene" derse formdaki state'ler zaten Formik üzerinde duruyor olabilir
-    // veya sıfırdan başlaması gerekebilir. Burada temizlemek en güvenlisidir.
+  
     localStorage.removeItem('pendingAppointment');
     localStorage.removeItem('doctorData');
     localStorage.removeItem('pendingAppointmentId');

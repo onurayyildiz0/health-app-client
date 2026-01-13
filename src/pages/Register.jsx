@@ -28,7 +28,7 @@ const Register = () => {
                 const response = await specialityService.getAllSpecialities();
                 setSpecialities(response.data || response || []);
             } catch (error) {
-                // Sessiz hata
+                // hata
             }
         };
         fetchSpecialities();
