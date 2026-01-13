@@ -284,8 +284,8 @@ const ProfileSettings = () => {
                                 Hesabı Sil
                             </Title>
                             <Text className="text-gray-600 text-sm">
-                                Hesabınızı sildiğinizde tüm verileriniz kalıcı olarak silinir. 
-                                <br />Bu işlem geri alınamaz.
+                                Hesabınızı sildiğinizde iki hafta sonra bu işlemi geri alabilirsiniz. 
+                                <br />
                             </Text>
                         </div>
                         <Button 
@@ -319,7 +319,7 @@ const ProfileSettings = () => {
             >
                 {actionType === 'DELETE_ACCOUNT' ? (
                     <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded text-sm">
-                        <b>DİKKAT:</b> Hesabınızı silmek üzeresiniz. Bu işlem geri alınamaz! 
+                        <b>DİKKAT:</b> Hesabınızı silmek üzeresiniz.
                         İşlemi onaylamak için lütfen <b>TC Kimlik Numaranızı</b> girin.
                     </div>
                 ) : (

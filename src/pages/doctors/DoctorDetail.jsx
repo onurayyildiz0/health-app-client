@@ -195,7 +195,7 @@ const DoctorDetail = () => {
                                 <div className="flex flex-col gap-6">
                                     {reviews.map(review => (
                                         <div key={review.id} className="bg-white">
-                                            <div className="flex items-start gap-4"><Avatar src={review.patient?.avatar ? review.patient?.avatar : null} icon={<UserOutlined />} className="bg-blue-100 text-blue-600 mt-1" /><div className="flex-1"><div className="flex justify-between items-center mb-1"><Text strong>{review.patient?.name || 'Anonim Hasta'}</Text><Text type="secondary" className="text-xs">{dayjs(review.createdAt).format('DD.MM.YYYY')}</Text></div><Rate disabled value={review.rating} style={{ fontSize: 14 }} className="mb-2 block" /><Paragraph className="text-gray-600 mb-0">{review.comment}</Paragraph></div></div><div className="border-b border-gray-100 mt-4 w-full" />
+                                            <div className="flex items-start gap-4"><Avatar src={review.patient?.avatar ? review.patient?.avatar : null} icon={<UserOutlined />} className="bg-blue-100 text-blue-600 mt-1" /><div className="flex-1"><div className="flex justify-between items-center mb-1"><Text strong>{review.patient?.name || ''}</Text><Text type="secondary" className="text-xs">{dayjs(review.createdAt).format('DD.MM.YYYY')}</Text></div><Rate disabled value={review.rating} style={{ fontSize: 14 }} className="mb-2 block" /><Paragraph className="text-gray-600 mb-0">{review.comment}</Paragraph></div></div><div className="border-b border-gray-100 mt-4 w-full" />
                                         </div>
                                     ))}
                                 </div>

@@ -29,7 +29,7 @@ const CreateAppointment = () => {
     const [searchParams] = useSearchParams();
     const preSelectedDoctorId = searchParams.get('doctorId');
 
-    
+
     const doctors = useSelector(selectAllDoctors);
     const specialities = useSelector(selectAllSpecialities);
     const bookedSlots = useSelector(selectBookedSlots);
@@ -37,15 +37,15 @@ const CreateAppointment = () => {
     const docLoading = useSelector(selectDoctorLoading);
     const error = useSelector(selectAppointmentError);
 
-    
+
     const provinces = useSelector(selectProvinces);
     const districts = useSelector(selectDistricts);
     const neighborhoods = useSelector(selectNeighborhoods);
 
-    
+
     const [modalVisible, setModalVisible] = useState(false);
 
-    
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSpeciality, setSelectedSpeciality] = useState(null);
     const [minPrice, setMinPrice] = useState(null);
@@ -54,7 +54,7 @@ const CreateAppointment = () => {
     const [filterDistrict, setFilterDistrict] = useState(null);
     const [filterNeighborhood, setFilterNeighborhood] = useState(null);
 
-    
+
     const [selectedProvinceId, setSelectedProvinceId] = useState(null);
     const [selectedDistrictId, setSelectedDistrictId] = useState(null);
     const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState(null);
@@ -67,13 +67,13 @@ const CreateAppointment = () => {
         notes: ''
     };
 
-    
+
     useEffect(() => {
         dispatch(fetchAllSpecialities());
         dispatch(fetchProvinces());
     }, [dispatch]);
 
-    
+
     useEffect(() => {
         const timer = setTimeout(() => {
             const params = {
@@ -91,7 +91,7 @@ const CreateAppointment = () => {
         return () => clearTimeout(timer);
     }, [dispatch, searchTerm, selectedSpeciality, filterProvince, filterDistrict, filterNeighborhood, minPrice, maxPrice]);
 
-    
+
     const handleProvinceChange = (val, option) => {
         setSelectedProvinceId(val);
         setFilterProvince(option ? option.children : null);
@@ -129,7 +129,7 @@ const CreateAppointment = () => {
         dispatch(clearBookedSlots());
     };
 
-    
+
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayMap = { monday: 'Pazartesi', tuesday: 'Salı', wednesday: 'Çarşamba', thursday: 'Perşembe', friday: 'Cuma', saturday: 'Cumartesi', sunday: 'Pazar' };
     const weekOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -150,10 +150,10 @@ const CreateAppointment = () => {
         };
 
         try {
-            
+
             const result = await dispatch(createNewAppointment(appointmentData));
 
-            
+
             localStorage.setItem('pendingAppointment', JSON.stringify(appointmentData));
             if (result.id) localStorage.setItem('pendingAppointmentId', result.id);
 
@@ -161,22 +161,22 @@ const CreateAppointment = () => {
             navigate('/appointment-success');
 
         } catch (err) {
-            
-            localStorage.setItem('pendingAppointment', JSON.stringify(appointmentData));
-            setModalVisible(false); 
 
-            
+            localStorage.setItem('pendingAppointment', JSON.stringify(appointmentData));
+            setModalVisible(false);
+
+
             const status = err.response?.status;
 
-            
-            
+
+
             if (status !== 400) {
                 navigate('/appointment-failed');
             }
         }
     };
 
-    
+
     const processedDoctors = doctors.map(doc => {
         let parsedClocks = {}, parsedUnavailable = [];
         try { parsedClocks = typeof doc.clocks === 'string' ? JSON.parse(doc.clocks) : doc.clocks || {}; } catch { }
@@ -215,20 +215,30 @@ const CreateAppointment = () => {
                         const isToday = values.date && dayjs(values.date).isSame(dayjs(), 'day');
 
                         return (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                <div className="lg:col-span-2">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start"> {/* items-start: Sticky'nin düzgün çalışması için önemli */}
+
+                                {/* 1. SOL TARAF (FORM) */}
+                                {/* Mobilde altta (order-2), Masaüstünde solda (order-1) ve 2 birim genişlikte */}
+                                <div className="order-2 lg:order-1 lg:col-span-2 w-full">
                                     <Card className="shadow-lg border-0 rounded-2xl overflow-hidden">
                                         {error && <Alert message={error} type="error" closable className="mb-4" />}
                                         <Form className="p-2 space-y-6">
-                                            {/* FILTERS */}
+                                            {/* ... (Form İçeriği - Filtreler, DatePicker, Select vs. AYNI KALACAK) ... */}
+
+                                            {/* ÖRNEK OLARAK FORM İÇERİĞİNİN BAŞLANGICI: */}
                                             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                                <div className="flex justify-between items-center mb-3"><span className="text-xs font-bold text-gray-500 uppercase">Doktor Filtrele</span><Button type="text" size="small" icon={<ClearOutlined />} onClick={() => handleClearFilters(setFieldValue)} className="text-gray-500 text-xs">Temizle</Button></div>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-xs font-bold text-gray-500 uppercase">Doktor Filtrele</span>
+                                                    <Button type="text" size="small" icon={<ClearOutlined />} onClick={() => handleClearFilters(setFieldValue)} className="text-gray-500 text-xs">Temizle</Button>
+                                                </div>
+                                                {/* ... (Filtre inputları buraya gelecek, kodun orijinalindeki gibi) ... */}
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                                                     <Input prefix={<SearchOutlined className="text-gray-400" />} placeholder="Doktor ara..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setFieldValue('doctor', ''); }} className="rounded-lg" />
                                                     <Select placeholder="Branş Seçin" allowClear className="w-full rounded-lg" value={selectedSpeciality} onChange={(val) => { setSelectedSpeciality(val); setFieldValue('doctor', ''); }} showSearch filterOption={(input, option) => option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}>
                                                         {specialities.map(s => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
                                                     </Select>
                                                 </div>
+                                                {/* ... (Diğer filtre alanları: İl, İlçe, Fiyat vs.) ... */}
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                                                     <Select placeholder="İl" className="w-full" allowClear showSearch onChange={handleProvinceChange} value={selectedProvinceId} filterOption={(input, option) => option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}>
                                                         {provinces.map(p => <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>)}
@@ -257,6 +267,7 @@ const CreateAppointment = () => {
                                                 </div>
                                             </div>
 
+                                            {/* DatePicker ve Saat Select Alanları */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">Randevu Tarihi</label>
@@ -284,28 +295,14 @@ const CreateAppointment = () => {
                                                         }}
                                                     >
                                                         {timeSlots.map(t => {
-                                                            
                                                             const [h, m] = t.split(':');
                                                             const slotTime = dayjs(values.date).hour(h).minute(m);
-
-                                                            
                                                             const isPast = isToday && slotTime.isBefore(dayjs());
-
-                                                            
                                                             const isBooked = bookedSlots.includes(t);
-
-                                                            
                                                             const isDisabled = isBooked || isPast;
-
                                                             return (
-                                                                <Select.Option
-                                                                    key={t}
-                                                                    value={t}
-                                                                    disabled={isDisabled}
-                                                                    className={isDisabled ? "bg-gray-100 text-gray-400" : ""}
-                                                                >
-                                                                    {t}
-                                                                    {isBooked ? ' (Dolu)' : isPast ? ' (Geçmiş)' : ''}
+                                                                <Select.Option key={t} value={t} disabled={isDisabled} className={isDisabled ? "bg-gray-100 text-gray-400" : ""}>
+                                                                    {t} {isBooked ? ' (Dolu)' : isPast ? ' (Geçmiş)' : ''}
                                                                 </Select.Option>
                                                             );
                                                         })}
@@ -313,8 +310,15 @@ const CreateAppointment = () => {
                                                     {errors.start && touched.start && <div className="text-red-500 text-sm mt-1">{errors.start}</div>}
                                                 </div>
                                             </div>
+
                                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Notlar</label><TextArea rows={3} className="rounded-xl" placeholder="..." value={values.notes} onChange={(e) => setFieldValue('notes', e.target.value)} /></div>
-                                            <div className="pt-4 flex justify-end gap-3"><Button size="large" onClick={() => navigate(-1)} className="rounded-xl">İptal</Button><Button type="primary" size="large" onClick={submitForm} disabled={!values.doctor || !values.date || !values.start} className="rounded-xl px-8 shadow-blue-300 shadow-md">İncele ve Onayla</Button></div>
+
+                                            <div className="pt-4 flex justify-end gap-3">
+                                                <Button size="large" onClick={() => navigate(-1)} className="rounded-xl">İptal</Button>
+                                                <Button type="primary" size="large" onClick={submitForm} disabled={!values.doctor || !values.date || !values.start} className="rounded-xl px-8 shadow-blue-300 shadow-md">İncele ve Onayla</Button>
+                                            </div>
+
+                                            {/* MODAL KODLARI BURADA KALACAK (Aynı şekilde) */}
                                             <Modal title={<div className="text-left w-full font-bold text-lg">Randevu Özeti</div>} open={modalVisible} onCancel={() => setModalVisible(false)} footer={null} centered width={500}>
                                                 <div className="flex flex-col items-start gap-4 py-4 w-full">
                                                     <div className="flex items-center gap-4 w-full bg-blue-50 p-4 rounded-xl border border-blue-100"><Avatar size={64} src={selectedDoctorData?.user?.avatar} icon={<UserOutlined />} className="border-2 border-white shadow-sm" /><div className="text-left"><h3 className="font-bold text-lg text-gray-800 m-0">Dr. {selectedDoctorData?.user?.name}</h3><p className="text-blue-600 font-medium m-0">{selectedDoctorData ? getDocSpecialityName(selectedDoctorData) : ''}</p></div></div>
@@ -327,26 +331,80 @@ const CreateAppointment = () => {
                                                     <Button type="primary" block size="large" className="mt-2 h-12 rounded-xl text-lg font-semibold bg-gradient-to-r from-blue-600 to-blue-500 border-0 shadow-lg shadow-blue-200" onClick={() => handleSubmit(values)} loading={appLoading}>Randevuyu Onayla</Button>
                                                 </div>
                                             </Modal>
+
                                         </Form>
                                     </Card>
                                 </div>
-                                <div className="lg:col-span-1">
-                                    <Card className="shadow-lg border-0 rounded-2xl h-full bg-gradient-to-b from-blue-50 to-white">
-                                        {!selectedDoctorData ? <div className="h-full flex flex-col items-center justify-center text-gray-400 py-12 text-center"><MedicineBoxOutlined className="text-6xl mb-4 opacity-30" /><p>Detayları görmek için<br />bir doktor seçiniz.</p></div> : (
+
+                                {/* 2. SAĞ TARAF (DOKTOR DETAY PANELİ) */}
+                                {/* Mobilde en üstte (order-1), Masaüstünde sağda (order-2) ve STICKY (Yapışkan) */}
+                                <div className="order-1 lg:order-2 lg:col-span-1 w-full lg:sticky lg:top-4 self-start">
+                                    <Card className="shadow-lg border-0 rounded-2xl h-full bg-gradient-to-b from-blue-50 to-white overflow-hidden">
+                                        {!selectedDoctorData ? (
+                                            <div className="flex flex-col items-center justify-center text-gray-400 py-8 lg:py-12 text-center min-h-[200px]">
+                                                <MedicineBoxOutlined className="text-5xl lg:text-6xl mb-4 opacity-30" />
+                                                <p className="text-sm lg:text-base">Detayları görmek için<br />bir doktor seçiniz.</p>
+                                            </div>
+                                        ) : (
                                             <div className="animate-fade-in w-full">
-                                                <div className="flex items-center gap-4 mb-4">
-                                                    <Avatar size={80} src={selectedDoctorData.user?.avatar} icon={<UserOutlined />} className="shadow-md border-4 border-white shrink-0" />
-                                                    <div className="text-left">
-                                                        <Title level={4} className="!mb-0 !mt-0 !text-lg">Dr. {selectedDoctorData.user?.name}</Title>
-                                                        <Tag color="blue" className="mt-1 border-0">{getDocSpecialityName(selectedDoctorData)}</Tag>
-                                                        <span>{selectedDoctorData.user?.email}</span>
+                                                {/* Avatar ve İsim Kısmı */}
+                                                <div className="flex flex-row items-center gap-4 mb-4">
+                                                    <Avatar
+                                                        size={{ xs: 60, sm: 70, md: 80, lg: 80, xl: 80, xxl: 80 }}
+                                                        src={selectedDoctorData.user?.avatar}
+                                                        icon={<UserOutlined />}
+                                                        className="shadow-md border-4 border-white shrink-0"
+                                                    />
+                                                    <div className="text-left min-w-0 flex-1">
+                                                        <Title level={4} className="!mb-0 !mt-0 !text-base lg:!text-lg truncate">Dr. {selectedDoctorData.user?.name}</Title>
+                                                        <Tag color="blue" className="mt-1 border-0 text-xs lg:text-sm">{getDocSpecialityName(selectedDoctorData)}</Tag>
+                                                        <div className="text-xs text-gray-500 truncate mt-1">{selectedDoctorData.user?.email}</div>
                                                     </div>
                                                 </div>
-                                                <Divider className="my-4" />
-                                                <div className="w-full space-y-4 text-left">
-                                                    <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-blue-50 shadow-sm"><EnvironmentOutlined className="mt-1 text-red-500 text-lg" /><div><span className="block text-xs font-bold text-gray-400 uppercase">Konum</span><span className="text-gray-700 font-medium">{selectedDoctorData.fullLocation || selectedDoctorData.location || 'Konum belirtilmemiş'}</span></div></div>
-                                                    <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-blue-50 shadow-sm"><DollarOutlined className="text-green-500 text-lg" /><div><span className="block text-xs font-bold text-gray-400 uppercase">Ücret</span><span className="text-gray-800 font-bold text-lg">{selectedDoctorData.consultationFee ? `${selectedDoctorData.consultationFee} ₺` : 'Ücretsiz'}</span></div></div>
-                                                    <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm"><div className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2"><ScheduleOutlined className="text-blue-500" /> Çalışma Saatleri</div><div className="space-y-2">{weekOrder.map(dayKey => { const dayData = selectedDoctorData.clocks?.[dayKey]; if (!dayData?.start) return null; return <div key={dayKey} className="flex justify-between items-center text-sm border-b border-gray-50 pb-1 last:border-0"><span className="text-gray-600 font-medium">{dayMap[dayKey]}</span><Tag className="m-0 bg-blue-50 border-blue-100 text-blue-600 rounded-md px-2">{dayData.start} - {dayData.end}</Tag></div> })}</div></div>
+
+                                                <Divider className="my-3 lg:my-4" />
+
+                                                {/* Bilgi Kutucukları */}
+                                                <div className="w-full space-y-3 lg:space-y-4 text-left">
+                                                    <div className="flex items-start gap-3 p-3 bg-white rounded-xl border border-blue-50 shadow-sm">
+                                                        <EnvironmentOutlined className="mt-1 text-red-500 text-lg shrink-0" />
+                                                        <div className="min-w-0">
+                                                            <span className="block text-[10px] lg:text-xs font-bold text-gray-400 uppercase">Konum</span>
+                                                            <span className="text-sm lg:text-base text-gray-700 font-medium break-words">
+                                                                {selectedDoctorData.fullLocation || selectedDoctorData.location || 'Konum belirtilmemiş'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-blue-50 shadow-sm">
+                                                        <DollarOutlined className="text-green-500 text-lg shrink-0" />
+                                                        <div>
+                                                            <span className="block text-[10px] lg:text-xs font-bold text-gray-400 uppercase">Ücret</span>
+                                                            <span className="text-gray-800 font-bold text-base lg:text-lg">
+                                                                {selectedDoctorData.consultationFee ? `${selectedDoctorData.consultationFee} ₺` : 'Ücretsiz'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-white p-3 lg:p-4 rounded-xl border border-blue-100 shadow-sm">
+                                                        <div className="text-[10px] lg:text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
+                                                            <ScheduleOutlined className="text-blue-500" /> Çalışma Saatleri
+                                                        </div>
+                                                        <div className="space-y-2 max-h-40 overflow-y-auto lg:max-h-none scrollbar-thin">
+                                                            {weekOrder.map(dayKey => {
+                                                                const dayData = selectedDoctorData.clocks?.[dayKey];
+                                                                if (!dayData?.start) return null;
+                                                                return (
+                                                                    <div key={dayKey} className="flex justify-between items-center text-xs lg:text-sm border-b border-gray-50 pb-1 last:border-0">
+                                                                        <span className="text-gray-600 font-medium">{dayMap[dayKey]}</span>
+                                                                        <Tag className="m-0 bg-blue-50 border-blue-100 text-blue-600 rounded-md px-1 lg:px-2 text-[10px] lg:text-xs">
+                                                                            {dayData.start} - {dayData.end}
+                                                                        </Tag>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
